@@ -5,6 +5,7 @@ local IPK_Version="3.0.9"
 local m, s, o
 local redir_run=0
 local reudp_run=0
+local redsocks_run=0
 local sock5_run=0
 local server_run=0
 local kcptun_run=0
@@ -70,7 +71,11 @@ if luci.sys.call("busybox ps -w | grep ' /var/etc/shadowsocksr.json' | grep -v g
 redir_run=1
 end	
 
-if luci.sys.call("pidof ssr-local >/dev/null") == 0 then
+if luci.sys.call("busybox ps -w | grep ' /var/etc/redsocks.conf' | grep -v grep >/dev/null") == 0 then
+redsocks_run=1
+end
+
+if luci.sys.call("busybox ps -w | grep ' /var/etc/shadowsocksr_s.json' | grep -v grep >/dev/null") == 0 then
 sock5_run=1
 end
 
@@ -118,7 +123,17 @@ else
 s.value = translate("Not Running")
 end 
 
-if nixio.fs.access("/usr/bin/ssr-local") then
+if nixio.fs.access("/usr/sbin/redsocks") then
+s=m:field(DummyValue,"redsocks_run",translate("RedSocks_Relay")) 
+s.rawhtml  = true
+if redsocks_run == 1 then
+s.value =font_blue .. bold_on .. translate("Running") .. bold_off .. font_off
+else
+s.value = translate("Not Running")
+end
+end
+
+-- if nixio.fs.access("/usr/bin/ssr-local") then
 s=m:field(DummyValue,"sock5_run",translate("SOCKS5 Proxy")) 
 s.rawhtml  = true
 if sock5_run == 1 then
@@ -126,7 +141,7 @@ s.value =font_blue .. bold_on .. translate("Running") .. bold_off .. font_off
 else
 s.value = translate("Not Running")
 end
-end
+-- end
 
 if nixio.fs.access("/usr/bin/ssr-server") then
 s=m:field(DummyValue,"server_run",translate("Global SSR Server")) 

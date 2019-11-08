@@ -1,11 +1,12 @@
 local ucursor = require "luci.model.uci".cursor()
 local json = require "luci.jsonc"
 local server_section = arg[1]
-local proto = arg[2] 
-local local_port = arg[3]
-local usr_dns = arg[4]
-local usr_port = arg[5]
-local fdns_port = arg[6]
+local proto = arg[2]
+local local_addr = arg[3] 
+local local_port = arg[4]
+local usr_dns = arg[5]
+local usr_port = arg[6]
+local fdns_port = arg[7]
 
 local server = ucursor:get_all("shadowsocksr", server_section)
 
@@ -16,18 +17,25 @@ local v2ray = {
   },
     -- 传入连接
     inbounds = {{
+        listen = local_addr,
         port = tonumber(local_port),
-        protocol = "dokodemo-door",
-        settings = {
+        protocol = (proto == "tcp,udp") and "socks" or "dokodemo-door",
+        settings = (proto == "tcp,udp") and {
+            udp = true,
+	    auth = "noauth",
+            ip = local_addr
+        } or {
             network = proto,
-            followRedirect = true
-        },
+            timeout = 30,
+            followRedirect = true,
+	},
         sniffing = {
             enabled = true,
             destOverride = { "http", "tls" }
         }
         },
         (proto == "udp") and {
+        listen = local_addr,
         port = tonumber(fdns_port),
         protocol = "dokodemo-door",
         settings = {
