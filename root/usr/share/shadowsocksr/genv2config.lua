@@ -3,6 +3,9 @@ local json = require "luci.jsonc"
 local server_section = arg[1]
 local proto = arg[2] 
 local local_port = arg[3]
+local usr_dns = arg[4]
+local usr_port = arg[5]
+local fdns_port = arg[6]
 
 local server = ucursor:get_all("shadowsocksr", server_section)
 
@@ -12,8 +15,8 @@ local v2ray = {
     loglevel = "warning"
   },
     -- 传入连接
-    inbound = {
-        port = local_port,
+    inbounds = {{
+        port = tonumber(local_port),
         protocol = "dokodemo-door",
         settings = {
             network = proto,
@@ -23,9 +26,20 @@ local v2ray = {
             enabled = true,
             destOverride = { "http", "tls" }
         }
+        },
+        (proto == "udp") and {
+        port = tonumber(fdns_port),
+        protocol = "dokodemo-door",
+        settings = {
+            network = proto,
+            address = usr_dns,
+            port = tonumber(usr_port),
+            followRedirect = false
+        },
+        } or nil
     },
     -- 传出连接
-    outbound = {
+    outbounds = {{
         protocol = "vmess",
         settings = {
             vnext = {
@@ -46,7 +60,10 @@ local v2ray = {
         streamSettings = {
             network = server.transport,
             security = (server.tls == '1') and "tls" or "none",
-            tlsSettings = {allowInsecure = (server.insecure == "1") and true or false,serverName=server.ws_host,},
+            tlsSettings = {
+		serverName = (server.tls_host ~= nil) and server.tls_host or ((server.ws_host ~= nil) and server.ws_host or ""),
+		allowInsecure = (server.insecure == "1") and true or false,
+		},
             kcpSettings = (server.transport == "kcp") and {
               mtu = tonumber(server.mtu),
               tti = tonumber(server.tti),
@@ -84,7 +101,7 @@ local v2ray = {
     },
 
     -- 额外传出连接
-    outboundDetour = {
+--    outboundDetour = {
         {
             protocol = "freedom",
             tag = "direct",

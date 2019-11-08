@@ -55,18 +55,18 @@ if nixio.fs.access("/etc/china_ssr.txt") then
  ip_count = sys.exec("cat /etc/china_ssr.txt | wc -l")
 end
 
-local icount=sys.exec("busybox ps -w | grep ssr-reudp |grep -v grep| wc -l")
+local icount=sys.exec("busybox ps -w | grep ' /var/etc/shadowsocksr_u.json' |grep -v grep| wc -l")
 if tonumber(icount)>0 then
 reudp_run=1
 else
-icount=sys.exec("busybox ps -w | grep ssr-retcp |grep \"\\-u\"|grep -v grep| wc -l")
+icount=sys.exec("busybox ps -w | grep ' /var/etc/shadowsocksr' |grep \"\\-u\"|grep -v grep| wc -l")
 if tonumber(icount)>0 then
 reudp_run=1
 end
 end
 
 
-if luci.sys.call("busybox ps -w | grep ssr-retcp | grep -v grep >/dev/null") == 0 then
+if luci.sys.call("busybox ps -w | grep ' /var/etc/shadowsocksr.json' | grep -v grep >/dev/null") == 0 then
 redir_run=1
 end	
 

@@ -30,6 +30,8 @@ switch_server=$1
 MAXFD=32768
 CRON_FILE=/etc/crontabs/root
 threads=1
+pdns_port=5335
+fdns_port=5353
 
 uci_get_by_name() {
 	local ret=$(uci get $NAME.$1.$2 2>/dev/null)
@@ -47,7 +49,7 @@ add_cron()
 	echo '0 1 * * * echo "" > /tmp/ssrplus.log' >> $CRON_FILE
 	[ -n "$(grep -w "/usr/share/shadowsocksr/subscribe.sh" $CRON_FILE)" ] && sed -i '/\/usr\/share\/shadowsocksr\/subscribe.sh/d' $CRON_FILE
 	[ $(uci_get_by_type server_subscribe auto_update 0) -eq 1 ] && echo "0 $(uci_get_by_type server_subscribe auto_update_time) * * * /usr/share/shadowsocksr/subscribe.sh" >> $CRON_FILE
-	[ -z "$(grep -w "/usr/share/shadowsocksr/update.sh" $CRON_FILE)" ] && echo "0 5 * * * /usr/share/shadowsocksr/update.sh" >> $CRON_FILE
+#	[ -z "$(grep -w "/usr/share/shadowsocksr/update.sh" $CRON_FILE)" ] && echo "0 5 * * * /usr/share/shadowsocksr/update.sh" >> $CRON_FILE
 	crontab $CRON_FILE
 }
 
@@ -62,6 +64,9 @@ run_mode=$(uci_get_by_type global run_mode)
 
 gen_config_file() {
          local host=$(uci_get_by_name $1 server)
+    local dnsstr="$(uci_get_by_type global tunnel_forward 8.8.4.4:53)"
+    local usr_dns=`echo "$dnsstr"|awk -F ':'  '{print $1}'`
+    local usr_port=`echo "$dnsstr"|awk -F ':'  '{print $2}'`
          if echo $host|grep -E "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$">/dev/null; then         
          hostip=${host}
          elif  [ "$host" != "${host#*:[0-9a-fA-F]}" ] ;then
@@ -123,8 +128,17 @@ EOF
 		}
 EOF
       elif [ "$stype" == "v2ray" ] ;then
-        lua /usr/share/shadowsocksr/genv2config.lua $GLOBAL_SERVER tcp $(uci_get_by_name $1 local_port) > /var/etc/v2-ssr-retcp.json
-        sed -i 's/\\//g' /var/etc/v2-ssr-retcp.json
+	stype="tcp"
+	local_port=$(uci_get_by_name $1 local_port)
+	[ $2 = "1" ] && stype="udp"
+        lua /usr/share/shadowsocksr/genv2config.lua $GLOBAL_SERVER $stype $local_port $usr_dns $usr_port $fdns_port > $config_file
+        sed -i 's/\\//g' $config_file
+      elif [ "$stype" == "trojan" ] ;then
+	stype="nat"
+	local_port=$(uci_get_by_name $1 local_port)
+	[ $2 = "1" ] && stype="forward" && local_port=$fdns_port
+        lua /usr/share/shadowsocksr/gentrojanconfig.lua $GLOBAL_SERVER $stype $usr_dns $usr_port $local_port > $config_file
+        sed -i 's/\\//g' $config_file
 fi
 }
 
@@ -143,7 +157,7 @@ start_rules() {
 	elif  [ "$server" != "${server#*:[0-9a-fA-F]}" ] ;then
 	server=${server}
 	else
-	server=`nslookup ${server} | grep 'Address 1' | sed 's/Address 1: //g'`
+        server=`nslookup ${server} | grep 'Address 1' | sed 's/Address 1: //g'`
 	 if echo $server|grep -E "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$">/dev/null; then
 	  echo $server >/etc/ssr_ip
 	 else
@@ -215,10 +229,12 @@ start_rules() {
 start_pdnsd() {
 	local usr_dns="$1"
   local usr_port="$2"
+	local stype="$3"
   
 	local tcp_dns_list="208.67.222.222, 208.67.220.220"
 	[ -z "$usr_dns" ] && usr_dns="8.8.8.8"
 	[ -z "$usr_port" ] && usr_port="53"
+	[ "$stype" == "trojan" -o "$stype" == "v2ray" ] && usr_dns="127.0.0.1" && usr_port="$fdns_port"
 
   [ -d /var/etc ] || mkdir -p /var/etc
 
@@ -235,7 +251,7 @@ global {
 	pid_file = /var/run/pdnsd.pid;
 	run_as="nobody";
 	server_ip = 127.0.0.1;
-	server_port = 5335;
+	server_port = $pdns_port;
 	status_ctl = on;
 	query_method = tcp_only;
 	min_ttl=1h;
@@ -265,7 +281,7 @@ server {
 }
 EOF
 
-	/usr/sbin/pdnsd -c /var/etc/pdnsd.conf -d
+	service_start /usr/sbin/pdnsd -c /var/etc/pdnsd.conf -d
 }
 
 
@@ -301,6 +317,8 @@ start_redir() {
         sscmd="/usr/bin/ssr-redir"
        elif [ "$stype" == "v2ray" ] ;then
         sscmd="/usr/bin/v2ray/v2ray"
+       elif [ "$stype" == "trojan" ] ;then
+        sscmd="/usr/sbin/trojan"
     fi
 		
 	local utype=$(uci_get_by_name $UDP_RELAY_SERVER type)
@@ -310,6 +328,8 @@ start_redir() {
         ucmd="/usr/bin/ssr-redir"
        elif [ "$utype" == "v2ray" ] ;then
         ucmd="/usr/bin/v2ray/v2ray"
+       elif [ "$utype" == "trojan" ] ;then
+        ucmd="/usr/sbin/trojan"
      fi
   
   if [ "$(uci_get_by_type global threads 0)" = "0" ] ;then
@@ -324,12 +344,17 @@ start_redir() {
     local pid_file="/var/run/ssr-retcp.pid"
     for i in $(seq 1 $threads)  
     do 
-      $sscmd -c $CONFIG_FILE $ARG_OTA -f /var/run/ssr-retcp_$i.pid >/dev/null 2>&1
+      $sscmd -c $CONFIG_FILE $ARG_OTA -f /var/run/ssr-retcp_$i.pid >>/tmp/ssrplus.log 2>&1
     done
     echo "$(date "+%Y-%m-%d %H:%M:%S") Shadowsocks/ShadowsocksR $threads Threads Started!" >> /tmp/ssrplus.log  
   elif [ "$stype" == "v2ray" ] ;then
-    $sscmd -config /var/etc/v2-ssr-retcp.json >/dev/null 2>&1 &
+    $sscmd -config $CONFIG_FILE >>/tmp/ssrplus.log 2>&1 &
     echo "$(date "+%Y-%m-%d %H:%M:%S") $($sscmd -version | head -1) Started!" >> /tmp/ssrplus.log
+    UDP_RELAY_SERVER=$GLOBAL_SERVER
+  elif [ "$stype" == "trojan" ] ;then
+    $sscmd --config $CONFIG_FILE >> /tmp/ssrplus.log 2>&1 &
+    echo "$(date "+%Y-%m-%d %H:%M:%S") $($sscmd --version 2>&1 | head -1) Started!" >> /tmp/ssrplus.log
+    UDP_RELAY_SERVER=$GLOBAL_SERVER
 	fi
 	
 	if [ -n "$UDP_RELAY_SERVER" ] ;then
@@ -343,10 +368,12 @@ start_redir() {
       last_config_file=$CONFIG_UDP_FILE
       pid_file="/var/run/ssr-reudp.pid"
       $ucmd -c $last_config_file $ARG_OTA -U -f /var/run/ssr-reudp.pid >/dev/null 2>&1
-    elif [ "$utype" == "v2ray" ] ; then
-        lua /usr/share/shadowsocksr/genv2config.lua $UDP_RELAY_SERVER udp $(uci_get_by_name $UDP_RELAY_SERVER local_port) > /var/etc/v2-ssr-reudp.json
-        sed -i 's/\\//g' /var/etc/v2-ssr-reudp.json
-        $ucmd -config /var/etc/v2-ssr-reudp.json >/dev/null 2>&1 &   
+    elif [ "$stype" == "v2ray" ] ; then
+        gen_config_file $UDP_RELAY_SERVER 1
+        $ucmd -config $CONFIG_UDP_FILE >/dev/null 2>&1 &   
+    elif [ "$stype" == "trojan" ] ;then
+        gen_config_file $UDP_RELAY_SERVER 1
+        $ucmd --config $CONFIG_UDP_FILE >> /tmp/ssrplus.log 2>&1 &
     fi
    fi
 
@@ -354,7 +381,7 @@ start_redir() {
 
 	#deal with dns
   
-  if [ "$(uci_get_by_type global pdnsd_enable)" = "1" ] ;then
+  if [ "$(uci_get_by_type global pdnsd_enable)" = "1" -o "$stype" == "trojan" ] ;then
     local dnsstr="$(uci_get_by_type global tunnel_forward 8.8.4.4:53)"
     local dnsserver=`echo "$dnsstr"|awk -F ':'  '{print $1}'`
     local dnsport=`echo "$dnsstr"|awk -F ':'  '{print $2}'`
@@ -365,7 +392,7 @@ start_redir() {
     else
         ipset add ss_spec_wan_ac $dnsserver nomatch 2>/dev/null  
     fi
-    start_pdnsd $dnsserver $dnsport
+    start_pdnsd $dnsserver $dnsport $stype
     pdnsd_enable_flag=1
   fi
 	
@@ -466,7 +493,9 @@ rules() {
 	[ "$GLOBAL_SERVER" = "nil" ] && return 1
 	mkdir -p /var/run /var/etc
 	UDP_RELAY_SERVER=$(uci_get_by_type global udp_relay_server)
+	stype=$(uci_get_by_name global type)
 	[ "$UDP_RELAY_SERVER" = "same" ] && UDP_RELAY_SERVER=$GLOBAL_SERVER
+	[ "$stype" == "trojan" ] && UDP_RELAY_SERVER=
 	if start_rules ;then
 	return 0
 	else
@@ -484,7 +513,7 @@ start() {
 
 	if rules ;then
 	start_redir
-	  
+  
   mkdir -p /tmp/dnsmasq.d && cp -a /etc/dnsmasq.ssr /tmp/ && cp -a /etc/dnsmasq.oversea /tmp/
 	if ! [ "$run_mode" = "oversea" ] ;then
 		cat > /tmp/dnsmasq.d/dnsmasq-ssr.conf <<EOF
@@ -495,9 +524,9 @@ EOF
 conf-dir=/tmp/dnsmasq.oversea
 EOF
 	fi
-	
+
 	/usr/share/shadowsocksr/gfw2ipset.sh
-	
+
 	/etc/init.d/dnsmasq restart >/dev/null 2>&1
 	
 	fi
@@ -509,7 +538,7 @@ EOF
     if [ $total_count -gt 0 ]
     then
     #param:server(count) redir_tcp(0:no,1:yes)  redir_udp tunnel kcp local gfw
-    service_start /usr/bin/ssr-monitor $server_count $redir_tcp $redir_udp $tunnel_enable $kcp_enable_flag $local_enable $pdnsd_enable_flag $switch_enable
+    service_start /usr/bin/ssr-monitor $server_count $redir_tcp $redir_udp $tunnel_enable $kcp_enable_flag $local_enable $pdnsd_enable_flag $switch_enable $stype
     fi
 	fi
 	
@@ -539,10 +568,12 @@ stop() {
 	killall -q -9 ss-redir
 	killall -q -9 ssr-redir
 	killall -q -9 v2ray
+	killall -q -9 trojan
 	killall -q -9 ssr-server
 	killall -q -9 kcptun-client
 	killall -q -9 ssr-local
 	if [ -f /var/run/pdnsd.pid ] ;then
+    service_stop /usr/sbin/pdnsd
     kill $(cat /var/run/pdnsd.pid) >/dev/null 2>&1
   else 
     kill -9 $(busybox ps -w | grep pdnsd | grep -v grep | awk '{print $1}') >/dev/null 2>&1 
