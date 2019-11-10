@@ -3,11 +3,6 @@
 
 local IPK_Version="3.0.9"
 local m, s, o
-local redir_run=0
-local reudp_run=0
-local redsocks_run=0
-local sock5_run=0
-local server_run=0
 local kcptun_run=0
 local tunnel_run=0
 local udp2raw_run=0
@@ -56,28 +51,87 @@ if nixio.fs.access("/etc/china_ssr.txt") then
  ip_count = sys.exec("cat /etc/china_ssr.txt | wc -l")
 end
 
-local icount=sys.exec("busybox ps -w | grep ' /var/etc/shadowsocksr_u.json' |grep -v grep| wc -l")
-if tonumber(icount)>0 then
-reudp_run=1
-else
-icount=sys.exec("busybox ps -w | grep ' /var/etc/shadowsocksr' |grep \"\\-u\"|grep -v grep| wc -l")
-if tonumber(icount)>0 then
-reudp_run=1
-end
+function processlist()
+	local data = {}
+	local netf = {}
+	local k
+	local ps = luci.util.execi("/bin/busybox top -bn1 | egrep -v dnsmasq")
+	local nets = luci.util.execi("netstat -netupl | egrep -v dnsmasq | awk '{print $1,$4,_,$6,$7}'")
+
+	if not ps or not nets then
+		return
+	end
+
+	for line in nets do
+-- tcp        0      0 127.0.0.1:1234          0.0.0.0:*               LISTEN      5103/v2ray
+-- udp        0      0 127.0.0.1:1234          0.0.0.0:*                           5147/v2ray
+--		local proto, ip, port, nid = line:match("([^%s]+) +.* +([^ ]*):(%d+) +.* +(%d+)\/.*")
+		local proto, ip, port, nid = line:match("([^%s]+) (.*):(%d+)[^%d]+(%d+)\/.*")
+		local idx = tonumber(nid)
+		if idx and ip then
+			local newstr = "://" .. ip .. ":" .. port
+			local isnew = (netf[idx] and netf[idx]['listen']) and netf[idx]['listen']:match(proto .. newstr)  or false
+			netf[idx] = {
+				['listen'] = ((netf[idx] and netf[idx]['listen']) and (not isnew) and (netf[idx]['listen'] .. "\n" .. proto) or proto) .. newstr,
+			}
+		end
+	end
+-- 5103     1 root     S     661m 543%   0% /usr/bin/v2ray/v2ray -config /var/etc/shadowsocksr.json
+	for line in ps do
+		local pid, ppid, user, stat, vsz, mem, cpu, cmd = line:match(
+			"^ *(%d+) +(%d+) +(%S.-%S) +([RSDZTW][W ][<N ]) +(%d+.?) +(%d+%%) +(%d+%%) +(.+)"
+		)
+		if cmd then
+		local idx = tonumber(pid)
+		local bin, param, cfg = cmd:match("^.*\/([^ ]*) *([^ ]*) *\/var\/etc\/([^ ]*).*")
+		if idx and cfg then
+			local listen = "NONE"
+			if netf[idx] and netf[idx]['listen'] then
+				listen = netf[idx]['listen']
+			end
+			data[idx] = {
+				['PID']     = pid,
+				['COMMAND'] = bin,
+				['LISTEN'] = listen,
+				['CONFIG']   = cfg,
+				['%MEM']    = mem,
+				['%CPU']    = cpu,
+			}
+		end
+		end
+	end
+
+	return data
 end
 
-
-if luci.sys.call("busybox ps -w | grep ' /var/etc/shadowsocksr.json' | grep -v grep >/dev/null") == 0 then
-redir_run=1
-end	
-
-if luci.sys.call("busybox ps -w | grep ' /var/etc/redsocks.conf' | grep -v grep >/dev/null") == 0 then
-redsocks_run=1
+function printstat(status, form, name)
+	local tabs = {
+		["Global Client"] = "shadowsocksr.json",
+		["Game Mode UDP Relay"] = "shadowsocksr_u.json",
+		["PDNSD"] = "pdnsd.conf",
+		["DNS Forward"] = "shadowsocksr_d.json",
+		["SOCKS5 Proxy"] = "shadowsocksr_s.json",
+		["Global SSR Server"] = "shadowsocksr_0.json"
+	}
+	local stat = translate("Unknown")
+	local sname = stat
+	if tabs[name] and status then
+	stat = translate("Not Running")
+	for idx, cfg in pairs(status) do
+		if status[idx]['CONFIG'] and status[idx]['CONFIG'] == tabs[name] then
+			stat = font_blue .. bold_on .. translate("Running") .. bold_off .. " > " .. status[idx]['COMMAND'] .. " -c " .. status[idx]['CONFIG'] .. font_off
+			sname = translate(status[idx]['COMMAND'])
+			break
+		end
+	end
+	end
+	local section = form:field(DummyValue,name,translate(name) .. ": " .. sname)
+	section.rawhtml  = true
+	section.value = stat
+	return section
 end
 
-if luci.sys.call("busybox ps -w | grep ' /var/etc/shadowsocksr_s.json' | grep -v grep >/dev/null") == 0 then
-sock5_run=1
-end
+procs=processlist()
 
 if luci.sys.call("pidof kcptun-client >/dev/null") == 0 then
 kcptun_run=1
@@ -99,59 +153,16 @@ m = SimpleForm("Version")
 m.reset = false
 m.submit = false
 
-s=m:field(DummyValue,"redir_run",translate("Global Client")) 
-s.rawhtml  = true
-if redir_run == 1 then
-s.value =font_blue .. bold_on .. translate("Running") .. bold_off .. font_off
-else
-s.value = translate("Not Running")
-end
+-- s=m:field(DummyValue,"redir_run",translate("Global Client")) 
+-- s.rawhtml  = true
+-- s.value = printstat("Global Client", procs)
 
-s=m:field(DummyValue,"reudp_run",translate("Game Mode UDP Relay")) 
-s.rawhtml  = true
-if reudp_run == 1 then
-s.value =font_blue .. bold_on .. translate("Running") .. bold_off .. font_off
-else
-s.value = translate("Not Running")
-end
-
-s=m:field(DummyValue,"pdnsd_run",translate("PDNSD"))
-s.rawhtml  = true                                              
-if pdnsd_run == 1 then                             
-s.value =font_blue .. bold_on .. translate("Running") .. bold_off .. font_off
-else             
-s.value = translate("Not Running")
-end 
-
-if nixio.fs.access("/usr/sbin/redsocks") then
-s=m:field(DummyValue,"redsocks_run",translate("RedSocks_Relay")) 
-s.rawhtml  = true
-if redsocks_run == 1 then
-s.value =font_blue .. bold_on .. translate("Running") .. bold_off .. font_off
-else
-s.value = translate("Not Running")
-end
-end
-
--- if nixio.fs.access("/usr/bin/ssr-local") then
-s=m:field(DummyValue,"sock5_run",translate("SOCKS5 Proxy")) 
-s.rawhtml  = true
-if sock5_run == 1 then
-s.value =font_blue .. bold_on .. translate("Running") .. bold_off .. font_off
-else
-s.value = translate("Not Running")
-end
--- end
-
-if nixio.fs.access("/usr/bin/ssr-server") then
-s=m:field(DummyValue,"server_run",translate("Global SSR Server")) 
-s.rawhtml  = true
-if server_run == 1 then
-s.value =font_blue .. bold_on .. translate("Running") .. bold_off .. font_off
-else
-s.value = translate("Not Running")
-end
-end
+s=printstat(procs, m, "Global Client")
+s=printstat(procs, m, "Game Mode UDP Relay")
+s=printstat(procs, m, "PDNSD")
+s=printstat(procs, m, "DNS Forward")
+s=printstat(procs, m, "SOCKS5 Proxy")
+s=printstat(procs, m, "Global SSR Server")
 
 if nixio.fs.access("/usr/bin/kcptun-client") then
 s=m:field(DummyValue,"kcp_version",translate("KcpTun Version")) 
@@ -191,5 +202,19 @@ s.value =ip_count .. " " .. translate("Records")
 s=m:field(DummyValue,"check_port",translate("Check Server Port"))
 s.template = "shadowsocksr/checkport"
 s.value =translate("No Check")
+
+t = m:section(Table, procs, translate("Running Details: ") .. "(/var/etc)")
+t:option(DummyValue, "PID", translate("PID"))
+t:option(DummyValue, "COMMAND", translate("CMD"))
+t:option(DummyValue, "LISTEN", translate("LISTEN"))
+t:option(DummyValue, "%CPU", translate("CPU"))
+t:option(DummyValue, "%MEM", translate("MEM"))
+-- t:option(DummyValue, "CONFIG", translate("CFG"))
+
+-- term = t:option(Button, "_term", translate("Terminate"))
+-- term.inputstyle = "remove"
+-- function term.write(self, section)
+--	null, self.tag_error[section] = luci.sys.process.signal(section, 15)
+-- end
 
 return m

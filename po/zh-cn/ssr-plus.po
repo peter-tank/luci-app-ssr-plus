@@ -380,6 +380,21 @@ msgstr "GFW列表"
 msgid "ShadowSocksR Plus+ Settings"
 msgstr "ShadowSocksR Plus+ 设置（支持SS/SSR/V2RAY/TROJAN）"
 
+msgid "trojan"
+msgstr "特洛伊"
+
+msgid "redsocks"
+msgstr "RedSocks接管"
+
+msgid "Same as UDP Server"
+msgstr "与UDP中继服务器相同"
+
+msgid "v2ray"
+msgstr "V2Ray接管"
+
+msgid "Running Details:"
+msgstr "进程详情："
+
 msgid "Main Server"
 msgstr "主服务器"
 

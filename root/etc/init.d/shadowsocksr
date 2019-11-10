@@ -10,6 +10,7 @@
 
 START=90
 STOP=15
+set -x
 
 SERVICE_DAEMONIZE=1
 NAME=shadowsocksr
@@ -17,6 +18,7 @@ EXTRA_COMMANDS=rules
 CONFIG_FILE=/var/etc/${NAME}.json
 CONFIG_UDP_FILE=/var/etc/${NAME}_u.json
 CONFIG_SOCK5_FILE=/var/etc/${NAME}_s.json
+CONFIG_DNS_FILE=/var/etc/${NAME}_d.json
 server_count=0
 redir_tcp=0
 redir_udp=0
@@ -43,13 +45,17 @@ uci_get_by_type() {
 	echo ${ret:=$3}
 }
 
+run_mode=$(uci_get_by_type global run_mode)
 add_cron()
 {
 	sed -i '/ssrplus.log/d' $CRON_FILE
 	echo '0 1 * * * echo "" > /tmp/ssrplus.log' >> $CRON_FILE
 	[ -n "$(grep -w "/usr/share/shadowsocksr/subscribe.sh" $CRON_FILE)" ] && sed -i '/\/usr\/share\/shadowsocksr\/subscribe.sh/d' $CRON_FILE
-	[ $(uci_get_by_type server_subscribe auto_update 0) -eq 1 ] && echo "0 $(uci_get_by_type server_subscribe auto_update_time) * * * /usr/share/shadowsocksr/subscribe.sh" >> $CRON_FILE
-#	[ -z "$(grep -w "/usr/share/shadowsocksr/update.sh" $CRON_FILE)" ] && echo "0 5 * * * /usr/share/shadowsocksr/update.sh" >> $CRON_FILE
+	[ -n "$(grep -w "/usr/share/shadowsocksr/update.sh" $CRON_FILE)" ] && sed -i '/\/usr\/share\/shadowsocksr\/update.sh/d' $CRON_FILE
+	[ $(uci_get_by_type server_subscribe auto_update 0) -eq 1 ] && {
+		echo "0 $(uci_get_by_type server_subscribe auto_update_time) * * * /usr/share/shadowsocksr/subscribe.sh" >> $CRON_FILE
+		[ -z "$(grep -w "/usr/share/shadowsocksr/update.sh" $CRON_FILE)" ] && echo "0 5 * * * /usr/share/shadowsocksr/update.sh" >> $CRON_FILE
+	}
 	crontab $CRON_FILE
 }
 
@@ -59,8 +65,6 @@ del_cron()
 	sed -i '/ssrplus.log/d' $CRON_FILE
 	/etc/init.d/cron restart
 }
-
-run_mode=$(uci_get_by_type global run_mode)
 
 gen_config_file() {
          local host=$(uci_get_by_name $1 server)
@@ -94,19 +98,40 @@ gen_config_file() {
          else
          fastopen="false";
          fi
+local_addr="127.0.0.1"
+local_port=$(uci_get_by_name $1 local_port)
 local stype=$(uci_get_by_name $1 type)
-[ $2 = "2" ] || {
-	local local_port=$(uci_get_by_name $1 local_port)
-	local local_addr="127.0.0.1"
+local password=$(uci_get_by_name $1 password)
+local server_port=$(uci_get_by_name $1 server_port)
+local smode
+if [ "$pdnsd" = "0" ]; then
+	[ $2 = "2" ] && local_port=$pdns_port && local_addr=$slocal_addr
+	fdns_port=$pdns_port
+else
+	[ $2 = "2" ] && local_port=$slocal_port && local_addr=$slocal_addr
+fi
+if [ "$stype" == "ss" -o "$stype" == "ssr" ] ;then
+	[ $2 = "2" ] && smode="client" && local_port=$slocal_port &&  local_addr=$slocal_addr
+elif [ "$stype" == "v2ray" ] ;then
+	smode="tcp"
+	[ $2 = "1" ] && smode="udp" && [ "$pdnsd" = "0" ] && smode="fdns"
+	[ $2 = "2" ] && smode="socks" && local_port=$slocal_port && local_addr=$slocal_addr
+elif [ "$stype" == "trojan" ] ;then
+	smode="nat"
+	[ $2 = "1" ] && {
+		smode="forward"
+		local_port=$fdns_port
 	}
+	[ $2 = "2" ] && smode="client" && local_port=$slocal_port && local_addr=$slocal_addr
+fi
 if [ "$stype" == "ss" ] ;then
 	cat <<-EOF >$config_file
 		{
 		    "server": "$hostip",
-		    "server_port": $(uci_get_by_name $1 server_port),
-		    "local_address": "0.0.0.0",
-		    "local_port": $(uci_get_by_name $1 local_port),
-		    "password": "$(uci_get_by_name $1 password)",
+		    "server_port": $server_port,
+		    "local_address": $local_addr,
+		    "local_port": $local_port,
+		    "password": "$password",
 		    "timeout": $(uci_get_by_name $1 timeout 60),
 		    "method": "$(uci_get_by_name $1 encrypt_method_ss)",
 		    "reuse_port": true,
@@ -116,12 +141,11 @@ EOF
        elif [ "$stype" == "ssr" ] ;then
 	cat <<-EOF >$config_file
 		{
-		    
 		    "server": "$hostip",
-		    "server_port": $(uci_get_by_name $1 server_port),
-		    "local_address": "0.0.0.0",
-		    "local_port": $(uci_get_by_name $1 local_port),
-		    "password": "$(uci_get_by_name $1 password)",
+		    "server_port": $server_port,
+		    "local_address": $local_addr,
+		    "local_port": $local_port,
+		    "password": "$password",
 		    "timeout": $(uci_get_by_name $1 timeout 60),
 		    "method": "$(uci_get_by_name $1 encrypt_method)",
 		    "protocol": "$(uci_get_by_name $1 protocol)",
@@ -133,17 +157,13 @@ EOF
 		}
 EOF
       elif [ "$stype" == "v2ray" ] ;then
-	stype="tcp"
-	[ $2 = "1" ] && stype="udp"
-	[ $2 = "2" ] && stype="tcp,udp"
-        lua /usr/share/shadowsocksr/genv2config.lua $1 $stype $local_addr $local_port $usr_dns $usr_port $fdns_port > $config_file
+        lua /usr/share/shadowsocksr/genv2config.lua $1 $smode $local_addr $local_port $usr_dns $usr_port $fdns_port > $config_file
         sed -i 's/\\//g' $config_file
       elif [ "$stype" == "trojan" ] ;then
-	stype="nat"
-	[ $2 = "1" ] && stype="forward" && local_port=$fdns_port
-	[ $2 = "2" ] && stype="client"
-        lua /usr/share/shadowsocksr/gentrojanconfig.lua $1 $stype $usr_dns $usr_port $local_addr $local_port > $config_file
+	[ "$2$pdnsd" == "10" ] && config_file=$CONFIG_DNS_FILE
+        lua /usr/share/shadowsocksr/gentrojanconfig.lua $1 $smode $usr_dns $usr_port $local_addr $local_port > $config_file
         sed -i 's/\\//g' $config_file
+	[ "$2$pdnsd" == "10" ] && /usr/sbin/trojan --config $config_file >/dev/null 2>&1 & 
 fi
 }
 
@@ -155,6 +175,7 @@ get_arg_out() {
 }
 
 start_rules() {
+	local proxyport ARG_UDP ac_ips
 	local server=$(uci_get_by_name $GLOBAL_SERVER server)
 	#resolve name
 	if echo $server|grep -E "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$">/dev/null; then         
@@ -172,11 +193,6 @@ start_rules() {
 	
 	kcp_server=$server
 	
-	local kcp_enable=$(uci_get_by_name $GLOBAL_SERVER kcp_enable 0)
-	if [ $kcp_enable = "1" ] ;then
-    kcp_flag=1
-	fi	
-	
 	local local_port=$(uci_get_by_name $GLOBAL_SERVER local_port)
 	local lan_ac_ips=$(uci_get_by_type access_control lan_ac_ips)
 	local lan_ac_mode="b"
@@ -185,13 +201,11 @@ start_rules() {
 		ARG_UDP="-u"
 	elif [ -n "$UDP_RELAY_SERVER" ]; then
 		ARG_UDP="-U"
-		local udp_server=$(uci_get_by_name $UDP_RELAY_SERVER server)
-		local udp_local_port=$(uci_get_by_name $UDP_RELAY_SERVER local_port)
 	fi
 	
 	if [ -n "$lan_ac_ips" ]; then
 		case "$lan_ac_mode" in
-			w|W|b|B) local ac_ips="$lan_ac_mode$lan_ac_ips";;
+			w|W|b|B) ac_ips="$lan_ac_mode$lan_ac_ips";;
 		esac
 	fi
 	
@@ -239,8 +253,10 @@ start_pdnsd() {
 	local tcp_dns_list="208.67.222.222, 208.67.220.220"
 	[ -z "$usr_dns" ] && usr_dns="8.8.8.8"
 	[ -z "$usr_port" ] && usr_port="53"
-	[ "$stype" == "trojan" -o "$stype" == "v2ray" ] && usr_dns="127.0.0.1" && usr_port="$fdns_port"
-
+	[ "$stype" == "trojan" -a "$usr_dns" == "127.0.0.1" ] && {
+		# DNS server forward
+        	$scmd --config $CONFIG_UDP_FILE >> /tmp/ssrplus.log 2>&1 &
+	}
   [ -d /var/etc ] || mkdir -p /var/etc
 
    if [ ! -d /var/pdnsd ];then
@@ -291,13 +307,13 @@ EOF
 
 
 start_redir() {
+	local ARG_OTA sscmd ucmd threads pid_file
 	case "$(uci_get_by_name $GLOBAL_SERVER auth_enable)" in
 		1|on|true|yes|enabled) ARG_OTA="-A";;
 		*) ARG_OTA="";;
 	esac
 	
 	#deal kcp
-	local kcp_enable=$(uci_get_by_name $GLOBAL_SERVER kcp_enable 0)
 	if [ $kcp_enable = "1" ] ;then
 		[ ! -f "/usr/bin/kcptun-client" ]  &&  return 1
 		
@@ -314,8 +330,6 @@ start_redir() {
 		kcp_enable_flag=1
 	fi
 	
-  gen_config_file $GLOBAL_SERVER 0
-  local stype=$(uci_get_by_name $GLOBAL_SERVER type)
     if [ "$stype" == "ss" ] ;then
         sscmd="/usr/bin/ss-redir"
        elif [ "$stype" == "ssr" ] ;then
@@ -325,15 +339,14 @@ start_redir() {
        elif [ "$stype" == "trojan" ] ;then
         sscmd="/usr/sbin/trojan"
     fi
-		
-	local utype=$(uci_get_by_name $UDP_RELAY_SERVER type)
+
     if [ "$utype" == "ss" ] ;then
         ucmd="/usr/bin/ss-redir"
        elif [ "$utype" == "ssr" ] ;then
         ucmd="/usr/bin/ssr-redir"
        elif [ "$utype" == "v2ray" ] ;then
         ucmd="/usr/bin/v2ray/v2ray"
-       elif [ "$stype" == "trojan" ] ;then
+       elif [ "$utype" == "trojan" ] ;then
         ucmd="/usr/sbin/trojan"
      fi
   
@@ -343,6 +356,7 @@ start_redir() {
     threads=$(uci_get_by_type global threads)
   fi
 
+  gen_config_file $GLOBAL_SERVER 0
 	redir_tcp=1
 	if [ "$stype" == "ss" -o "$stype" == "ssr" ] ;then
     local last_config_file=$CONFIG_FILE
@@ -355,35 +369,27 @@ start_redir() {
   elif [ "$stype" == "v2ray" ] ;then
     $sscmd -config $CONFIG_FILE >>/tmp/ssrplus.log 2>&1 &
     echo "$(date "+%Y-%m-%d %H:%M:%S") $($sscmd -version | head -1) Started!" >> /tmp/ssrplus.log
-    UDP_RELAY_SERVER=$GLOBAL_SERVER
   elif [ "$stype" == "trojan" ] ;then
     $sscmd --config $CONFIG_FILE >> /tmp/ssrplus.log 2>&1 &
     echo "$(date "+%Y-%m-%d %H:%M:%S") $($sscmd --version 2>&1 | head -1) Started!" >> /tmp/ssrplus.log
-    UDP_RELAY_SERVER=$GLOBAL_SERVER
 	fi
 	
 	if [ -n "$UDP_RELAY_SERVER" ] ;then
     redir_udp=1
+    gen_config_file $UDP_RELAY_SERVER 1
     if [ "$utype" == "ss" -o "$utype" == "ssr" ] ;then
       case "$(uci_get_by_name $UDP_RELAY_SERVER auth_enable)" in
         1|on|true|yes|enabled) ARG_OTA="-A";;
         *) ARG_OTA="";;
       esac		
-      gen_config_file $UDP_RELAY_SERVER 1
       last_config_file=$CONFIG_UDP_FILE
       pid_file="/var/run/ssr-reudp.pid"
       $ucmd -c $last_config_file $ARG_OTA -U -f /var/run/ssr-reudp.pid >/dev/null 2>&1
     elif [ "$stype" == "v2ray" ] ; then
-        gen_config_file $UDP_RELAY_SERVER 1
         $ucmd -config $CONFIG_UDP_FILE >/dev/null 2>&1 &   
-    elif [ "$stype" == "trojan" ] ;then
-        gen_config_file $UDP_RELAY_SERVER 1
-        $ucmd --config $CONFIG_UDP_FILE >> /tmp/ssrplus.log 2>&1 &
-	local redsocks_file="/var/etc/redsocks.conf"
-	local udp_local_addr="127.0.0.1"
-	local udp_local_port=$(uci_get_by_name $UDP_RELAY_SERVER local_port)
-	local local_port=$(uci_get_by_name socks5_proxy local_port 1080)
-	local local_addr=$(uci_get_by_name socks5_proxy local_address "0.0.0.0")
+    elif [ "$utype" == "trojan" ] ;then
+	# UDP Relay by redsocks
+	local redsocks_file=$CONFIG_UDP_FILE
 	cat <<-EOF >$redsocks_file
 base {
 	log_debug = off;
@@ -393,17 +399,17 @@ base {
 	redirector = iptables;
 }
 redudp {
-	local_ip = $udp_local_addr;
+	local_ip = 127.0.0.1;
 	local_port = $udp_local_port;
-	ip = $local_addr;
-	port = $local_port;
+	ip = $slocal_addr;
+	port = $slocal_port;
 	dest_ip = 127.0.0.1;
 	dest_port = $pdns_port;
 	udp_timeout = 30;
 	udp_timeout_stream = 180;
 }
 EOF
-	redsocks -c "${redsocks_file}"
+        /usr/sbin/redsocks -c "${redsocks_file}"
     fi
    fi
 
@@ -411,7 +417,7 @@ EOF
 
 	#deal with dns
   
-  if [ "$(uci_get_by_type global pdnsd_enable)" = "1" -o "$stype" == "trojan" ] ;then
+  if [ "$pdnsd" = "1" ] ;then
     local dnsstr="$(uci_get_by_type global tunnel_forward 8.8.4.4:53)"
     local dnsserver=`echo "$dnsstr"|awk -F ':'  '{print $1}'`
     local dnsport=`echo "$dnsstr"|awk -F ':'  '{print $2}'`
@@ -509,29 +515,30 @@ start_server() {
 
 start_local() {
 	local local_server=$(uci_get_by_type socks5_proxy server)
-	local stype=$(uci_get_by_name $local_server type)
-	local local_port=$(uci_get_by_name socks5_proxy local_port 1080)
-	local local_addr=$(uci_get_by_name socks5_proxy local_address "0.0.0.0")
-	[ "$local_server" = "nil" ] && return 1
+	[ ! [ "$utype" == "trojan" -a -n "$UDP_RELAY_SERVER" ] ] && [ "$local_server" = "nil" ] && return 1
+	if [ "$local_server" = "same" -o "$local_server" = "nil" ]; then
+		local_server=$UDP_RELAY_SERVER
+	fi
+	local ltype=$(uci_get_by_name $local_server type)
 	mkdir -p /var/run /var/etc
 	gen_config_file $local_server 2
-    if [ "$stype" == "ss" ] ;then
+    if [ "$ltype" == "ss" ] ;then
         sscmd="/usr/bin/ss-local"
-       elif [ "$stype" == "ssr" ] ;then
+       elif [ "$ltype" == "ssr" ] ;then
         sscmd="/usr/bin/ssr-local"
-       elif [ "$stype" == "v2ray" ] ;then
+       elif [ "$ltype" == "v2ray" ] ;then
         sscmd="/usr/bin/v2ray/v2ray"
-       elif [ "$stype" == "trojan" ] ;then
+       elif [ "$ltype" == "trojan" ] ;then
         sscmd="/usr/sbin/trojan"
     fi
-    if [ "$stype" == "ss" -o "$stype" == "ssr" ] ;then
+    if [ "$ltype" == "ss" -o "$ltype" == "ssr" ] ;then
 	$sscmd -c $CONFIG_SOCK5_FILE -u  \
-		-l $local_port \
-		-b $local_address \
+		-l $slocal_port \
+		-b $slocal_addr \
 		-f /var/run/ssr-local.pid >/dev/null 2>&1
-       elif [ "$stype" == "v2ray" ] ;then
+       elif [ "$ltype" == "v2ray" ] ;then
 	$sscmd -config $CONFIG_SOCK5_FILE >/dev/null 2>&1 &
-       elif [ "$stype" == "trojan" ] ;then
+       elif [ "$ltype" == "trojan" ] ;then
 	$sscmd --config $CONFIG_SOCK5_FILE >/dev/null 2>&1 &
     fi
 	local_enable=1	
@@ -539,11 +546,11 @@ start_local() {
 
 rules() {
 	[ "$GLOBAL_SERVER" = "nil" ] && return 1
-	mkdir -p /var/run /var/etc
-	UDP_RELAY_SERVER=$(uci_get_by_type global udp_relay_server)
-	stype=$(uci_get_by_name $GLOBAL_SERVER type)
 	[ "$UDP_RELAY_SERVER" = "same" ] && UDP_RELAY_SERVER=$GLOBAL_SERVER
-	[ "$stype" == "trojan" ] && UDP_RELAY_SERVER=$GLOBAL_SERVER
+	utype=$(uci_get_by_name $UDP_RELAY_SERVER type)
+	udp_server=$(uci_get_by_name $UDP_RELAY_SERVER server)
+	udp_local_port=$(uci_get_by_name $UDP_RELAY_SERVER local_port)
+	mkdir -p /var/run /var/etc
 	if start_rules ;then
 	return 0
 	else
@@ -551,7 +558,9 @@ rules() {
 	fi
 }
 
-start() { 
+start() {
+	local GLOBAL_SERVER UDP_RELAY_SERVER stype pdnsd kcp_server kcp_enable udp_server udp_local_port
+	local utype  slocal_port slocal_addr
 	if [ -z "$switch_server" ] ;then
 	GLOBAL_SERVER=$(uci_get_by_type global global_server)
 	else
@@ -559,6 +568,16 @@ start() {
 	switch_enable=1
 	fi
 
+	UDP_RELAY_SERVER=$(uci_get_by_type global udp_relay_server)
+
+	stype=$(uci_get_by_name $GLOBAL_SERVER type)
+	kcp_enable=$(uci_get_by_name $GLOBAL_SERVER kcp_enable 0)
+	[ $kcp_enable = "1" ] && kcp_flag=1
+
+	pdnsd=$(uci_get_by_type global pdnsd_enable)
+
+	slocal_port=$(uci_get_by_name socks5_proxy local_port 1080)
+	slocal_addr=$(uci_get_by_name socks5_proxy local_address "0.0.0.0")
 	if rules ;then
 	start_redir
   
@@ -573,25 +592,19 @@ conf-dir=/tmp/dnsmasq.oversea
 EOF
 	fi
 
-	/usr/share/shadowsocksr/gfw2ipset.sh
+	/usr/share/shadowsocksr/gfw2ipset.sh $pdns_port
 
 	/etc/init.d/dnsmasq restart >/dev/null 2>&1
 	
 	fi
-	start_server	
 	start_local
+	local ENABLE_SERVER=$(uci_get_by_type global global_server)
+	[ "$ENABLE_SERVER" = "nil" ] || start_server	
 	
 	if [ $(uci_get_by_type global monitor_enable) = 1 ] ;then
-	let total_count=server_count+redir_tcp+redir_udp+tunnel_enable+kcp_enable_flag+local_enable+pdnsd_enable_flag+switch_enable
-    if [ $total_count -gt 0 ]
-    then
-    #param:server(count) redir_tcp(0:no,1:yes)  redir_udp tunnel kcp local gfw
-    service_start /usr/bin/ssr-monitor $server_count $redir_tcp $redir_udp $tunnel_enable $kcp_enable_flag $local_enable $pdnsd_enable_flag $switch_enable $stype
-    fi
+	let total_count=server_count+redir_tcp+redir_udp+tunnel_enable+kcp_enable_flag+local_enable+pdnsd_enable_flag+switch_enable+local_enable
+	[ $total_count -gt 0 ] && service_start /usr/bin/ssr-monitor $server_count $redir_tcp $redir_udp $tunnel_enable $kcp_enable_flag $local_enable $pdnsd_enable_flag $switch_enable $stype
 	fi
-	
-	ENABLE_SERVER=$(uci_get_by_type global global_server)
-	[ "$ENABLE_SERVER" = "nil" ] && return 1
 }
 
 boot() {

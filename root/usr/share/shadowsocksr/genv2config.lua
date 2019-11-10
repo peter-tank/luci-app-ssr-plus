@@ -19,13 +19,13 @@ local v2ray = {
     inbounds = {{
         listen = local_addr,
         port = tonumber(local_port),
-        protocol = (proto == "tcp,udp") and "socks" or "dokodemo-door",
-        settings = (proto == "tcp,udp") and {
+        protocol = (proto == "socks") and "socks" or "dokodemo-door",
+        settings = (proto == "socks") and {
             udp = true,
 	    auth = "noauth",
             ip = local_addr
         } or {
-            network = proto,
+            network = (proto == "tcp") and "tcp" or "udp",
             timeout = 30,
             followRedirect = true,
 	},
@@ -34,12 +34,12 @@ local v2ray = {
             destOverride = { "http", "tls" }
         }
         },
-        (proto == "udp") and {
+        (proto == "fdns") and {
         listen = local_addr,
         port = tonumber(fdns_port),
         protocol = "dokodemo-door",
         settings = {
-            network = proto,
+            network = "tcp,udp",
             address = usr_dns,
             port = tonumber(usr_port),
             followRedirect = false
