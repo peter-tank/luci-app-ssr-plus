@@ -64,10 +64,15 @@ o:value("1", translate("All Ports"))
 o:value("2", translate("Only Common Ports"))
 o.default = 1
 
+o = s:option(Flag, "dnscrypt_enable", translate("Use DNSCrypt Proxy listen port 5353"))
+o.rmempty = true
+o.default = 0
+
 o = s:option(ListValue, "pdnsd_enable", translate("Resolve Dns Mode"))
 o:value("1", translate("Use Pdnsd tcp query and cache"))
 o:value("0", translate("Use Local DNS Service listen port 5335"))
 o.default = 1
+o:depends("dnscrypt_enable", 0)
 
 o = s:option(ListValue, "tunnel_forward", translate("Anti-pollution DNS Server"))
 o:value("8.8.4.4:53", translate("Google Public DNS (8.8.4.4)"))
@@ -83,6 +88,6 @@ o:value("4.2.2.4:53", translate("Level 3 Public DNS (4.2.2.4)"))
 o:value("1.1.1.1:53", translate("Cloudflare DNS (1.1.1.1)"))
 o:value("114.114.114.114:53", translate("Oversea Mode DNS-1 (114.114.114.114)"))
 o:value("114.114.115.115:53", translate("Oversea Mode DNS-2 (114.114.115.115)"))
--- o:depends("pdnsd_enable", "1")
+o:depends("dnscrypt_enable", 0)
 
 return m

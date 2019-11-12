@@ -10,7 +10,6 @@
 
 START=90
 STOP=15
-set -x
 
 SERVICE_DAEMONIZE=1
 NAME=shadowsocksr
@@ -34,6 +33,46 @@ CRON_FILE=/etc/crontabs/root
 threads=1
 pdns_port=5335
 fdns_port=5353
+dnscrypt_enable=0
+dnscrypt_enable_flag=0
+set -x
+uci_get_resolver_addr_byname() {
+local __PKGNAME="$1"
+local __SECTIONID="$2"
+local __FILTER="$3"
+local __FILTER_VAL="$4"
+local __VAR
+local __ALL_OPTION_VARIABLES=""
+
+	config_cb()
+	{
+		if [ ."$2" = ."$__SECTIONID" ]; then
+			option_cb()
+			{
+				__ALL_OPTION_VARIABLES="$__ALL_OPTION_VARIABLES $1"
+			}
+		else
+			option_cb() { return 0; }
+		fi
+	}
+
+	match_name()
+	{
+		eval "local value=\${CONFIG_$1_$2}"
+		if [ ."$3" = ."${value}" ]; then
+			eval config_set "found" "resolver_address" "\${CONFIG_$1_resolver_address}"
+		fi
+	}
+
+config_load "$__PKGNAME"
+config_foreach "match_name" "$__SECTIONID" "$__FILTER" "$__FILTER_VAL"
+config_get "found" "resolver_address" "" ""
+}
+
+uci_get_dnscrypt_byname() {
+	local ret=$(uci get dnscrypt-proxy.$1.$2 2>/dev/null)
+	echo ${ret:=$3}
+}
 
 uci_get_by_name() {
 	local ret=$(uci get $NAME.$1.$2 2>/dev/null)
@@ -121,6 +160,7 @@ elif [ "$stype" == "trojan" ] ;then
 	[ $2 = "1" ] && {
 		smode="forward"
 		local_port=$fdns_port
+		config_file=$CONFIG_DNS_FILE
 	}
 	[ $2 = "2" ] && smode="client" && local_port=$slocal_port && local_addr=$slocal_addr
 fi
@@ -253,9 +293,9 @@ start_pdnsd() {
 	local tcp_dns_list="208.67.222.222, 208.67.220.220"
 	[ -z "$usr_dns" ] && usr_dns="8.8.8.8"
 	[ -z "$usr_port" ] && usr_port="53"
-	[ "$stype" == "trojan" -a "$usr_dns" == "127.0.0.1" ] && {
+	[ "$stype" == "trojan" -o "$stype" == "v2ray" -o "$utype" == "trojan" -o "$utype" == "v2ray" ] && [ "$dnscrypt" == 0 ] && {
 		# DNS server forward
-        	$scmd --config $CONFIG_UDP_FILE >> /tmp/ssrplus.log 2>&1 &
+        	$sscmd --config $CONFIG_DNS_FILE >> /tmp/ssrplus.log 2>&1 &
 	}
   [ -d /var/etc ] || mkdir -p /var/etc
 
@@ -417,10 +457,28 @@ EOF
 
 	#deal with dns
   
+  if [ "$dnscrypt" == "1" ] ;then
+    pdnsd="1"
+    /etc/init.d/dnscrypt-proxy start >/dev/null 2>&1
+    dnscrypt_enable=1
+    dnscrypt_enable_flag=1
+  fi
+
   if [ "$pdnsd" = "1" ] ;then
     local dnsstr="$(uci_get_by_type global tunnel_forward 8.8.4.4:53)"
-    local dnsserver=`echo "$dnsstr"|awk -F ':'  '{print $1}'`
-    local dnsport=`echo "$dnsstr"|awk -F ':'  '{print $2}'`
+    local dnscrypt_rid=$(uci_get_dnscrypt_byname ns1 resolver)
+    local dnscryptstr dnsserver dnsport
+    if [ "$dnscrypt" == "1" -a -n $dnscrypt_rid ]; then
+        dnscryptstr=$(uci_get_resolver_addr_byname "dnslist" "server" "name" "$dnscrypt_rid")
+        [ -n "$dnscryptstr" ] && {   
+            dnsserver=`echo "$dnscryptstr"|sed 's/^\(.*\):\([^:]*\)$/\1/'`
+            dnsport=$(uci_get_dnscrypt_byname ns1 port "$fdns_port")
+            dnsstr="$dnsserver:$dnsport"
+        }
+    fi
+    dnsserver=`echo "$dnsstr"|sed 's/^\(.*\):\([^:]*\)$/\1/'`
+    dnsport=`echo "$dnsstr"|sed 's/^\(.*\):\([^:]*\)$/\2/'`
+    [ "$dnsserver" == "127.0.0.1" ] || {
     if [ "$run_mode" = "gfw" ]; then
         ipset add gfwlist $dnsserver 2>/dev/null
     elif [ "$run_mode" = "oversea" ]; then
@@ -428,6 +486,10 @@ EOF
     else
         ipset add ss_spec_wan_ac $dnsserver nomatch 2>/dev/null  
     fi
+    }
+    [ -n "$dnscryptstr" ] && {   
+        dnsserver=$(uci_get_dnscrypt_byname ns1 address "127.0.0.1")
+    }
     start_pdnsd $dnsserver $dnsport $stype
     pdnsd_enable_flag=1
   fi
@@ -560,7 +622,7 @@ rules() {
 
 start() {
 	local GLOBAL_SERVER UDP_RELAY_SERVER stype pdnsd kcp_server kcp_enable udp_server udp_local_port
-	local utype  slocal_port slocal_addr
+	local utype  slocal_port slocal_addr dnscrypt
 	if [ -z "$switch_server" ] ;then
 	GLOBAL_SERVER=$(uci_get_by_type global global_server)
 	else
@@ -575,6 +637,7 @@ start() {
 	[ $kcp_enable = "1" ] && kcp_flag=1
 
 	pdnsd=$(uci_get_by_type global pdnsd_enable)
+	dnscrypt=$(uci_get_by_type global dnscrypt_enable "0")
 
 	slocal_port=$(uci_get_by_name socks5_proxy local_port 1080)
 	slocal_addr=$(uci_get_by_name socks5_proxy local_address "0.0.0.0")
@@ -602,8 +665,8 @@ EOF
 	[ "$ENABLE_SERVER" = "nil" ] || start_server	
 	
 	if [ $(uci_get_by_type global monitor_enable) = 1 ] ;then
-	let total_count=server_count+redir_tcp+redir_udp+tunnel_enable+kcp_enable_flag+local_enable+pdnsd_enable_flag+switch_enable+local_enable
-	[ $total_count -gt 0 ] && service_start /usr/bin/ssr-monitor $server_count $redir_tcp $redir_udp $tunnel_enable $kcp_enable_flag $local_enable $pdnsd_enable_flag $switch_enable $stype
+	let total_count=server_count+redir_tcp+redir_udp+tunnel_enable+kcp_enable_flag+local_enable+pdnsd_enable_flag+switch_enable+local_enable+dnscrypt_enable
+	[ $total_count -gt 0 ] && service_start /usr/bin/ssr-monitor $server_count $redir_tcp $redir_udp $tunnel_enable $kcp_enable_flag $local_enable $pdnsd_enable_flag $dnscrypt_enable_flag $switch_enable $stype
 	fi
 }
 
@@ -645,5 +708,6 @@ stop() {
 		rm -f /tmp/dnsmasq.d/dnsmasq-ssr.conf
 		/etc/init.d/dnsmasq restart >/dev/null 2>&1
   fi
+  /etc/init.d/dnscrypt-proxy stop >/dev/null 2>&1
   del_cron
 }

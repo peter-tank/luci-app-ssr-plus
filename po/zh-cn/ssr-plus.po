@@ -541,3 +541,57 @@ msgstr "订阅服务器节点前，请先更新订阅URL列表"
 
 msgid "Update All Subscribe Severs"
 msgstr "更新所有订阅服务器节点"
+
+msgid "Update DNSCrypt Server List"
+msgstr "更新DNSCrypt公开服务器列表"
+
+msgid "Use DNSCrypt Proxy listen port 5353"
+msgstr "使用DNSCrypt代理"
+
+msgid "DNSCrypt Servers"
+msgstr "DNSCrypt列表"
+
+msgid "DNSCrypt Proxy Settings"
+msgstr "DNSCrypt代理设置"
+
+msgid "Golbal Setting"
+msgstr "全局设置"
+
+msgid "DNSCrypt Proxy"
+msgstr "DNSCrypt代理"
+
+msgid "Listening address"
+msgstr "监听地址"
+
+msgid "Select Resolver"
+msgstr "特别指定"
+
+msgid "DNSCrypt Resolvers List"
+msgstr "DNSCrypt服务器"
+
+msgid "Official DNSCrypt List"
+msgstr "公开服务器"
+
+msgid "reload dns server list from file:"
+msgstr "从文件刷新列表："
+
+msgid "DNSCrypt Servers Manage"
+msgstr "DNSCrypt服务器列表管理"
+
+msgid "Choose a file from the list to read."
+msgstr "请从列表选择文件来查看。"
+
+msgid "File Viewer"
+msgstr "文件查看器"
+
+msgid "Read / Reread log file"
+msgstr "读取/重新读取"
+
+msgid "Please press [Read] button"
+msgstr "请点读取按钮"
+
+msgid "File not found or empty"
+msgstr "文件未找到或为空"
+
+msgid "No files found"
+msgstr "文件未找到"

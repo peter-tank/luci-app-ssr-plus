@@ -11,6 +11,7 @@ local gfw_count=0
 local ad_count=0
 local ip_count=0
 local gfwmode=0
+local dns_count=0
 
 if nixio.fs.access("/etc/dnsmasq.ssr/gfw_list.conf") then
 gfwmode=1		
@@ -46,6 +47,8 @@ if gfwmode==1 then
   ad_count=tonumber(sys.exec("cat /etc/dnsmasq.ssr/ad.conf | wc -l"))
  end
 end
+
+dns_count=tonumber(sys.exec("cat /usr/share/dnscrypt-proxy/dnscrypt-resolvers.csv | wc -l"))
  
 if nixio.fs.access("/etc/china_ssr.txt") then 
  ip_count = sys.exec("cat /etc/china_ssr.txt | wc -l")
@@ -111,7 +114,8 @@ function printstat(status, form, name)
 		["PDNSD"] = "pdnsd.conf",
 		["DNS Forward"] = "shadowsocksr_d.json",
 		["SOCKS5 Proxy"] = "shadowsocksr_s.json",
-		["Global SSR Server"] = "shadowsocksr_0.json"
+		["Global SSR Server"] = "shadowsocksr_0.json",
+		["DNSCrypt Proxy"] = "dnscrypt-proxy-ns1.conf",
 	}
 	local stat = translate("Unknown")
 	local sname = stat
@@ -161,6 +165,7 @@ s=printstat(procs, m, "Global Client")
 s=printstat(procs, m, "Game Mode UDP Relay")
 s=printstat(procs, m, "PDNSD")
 s=printstat(procs, m, "DNS Forward")
+s=printstat(procs, m, "DNSCrypt Proxy")
 s=printstat(procs, m, "SOCKS5 Proxy")
 s=printstat(procs, m, "Global SSR Server")
 
@@ -181,27 +186,37 @@ end
 s=m:field(DummyValue,"google",translate("Google Connectivity"))
 s.value = translate("No Check") 
 s.template = "shadowsocksr/check"
+s.description = "/usr/bin/ssr-check www.google.com 80 3 1"
 
 s=m:field(DummyValue,"baidu",translate("Baidu Connectivity")) 
 s.value = translate("No Check") 
 s.template = "shadowsocksr/check"
+s.description = "/usr/bin/ssr-check www.baidu.com 80 3 1"
+
+s=m:field(DummyValue,"dns_data",translate("Update DNSCrypt Server List"))
+s.rawhtml  = true
+s.template = "shadowsocksr/refresh"
+s.value =tostring(math.ceil(dns_count)) .. " " .. translate("Records")
+s.description = "https://raw.githubusercontent.com/dyne/dnscrypt-proxy/master/dnscrypt-resolvers.csv"
 
 if gfwmode==1 then 
 s=m:field(DummyValue,"gfw_data",translate("GFW List Data")) 
 s.rawhtml  = true
 s.template = "shadowsocksr/refresh"
 s.value =tostring(math.ceil(gfw_count)) .. " " .. translate("Records")
-
+s.description = "https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt"
 end
 
 s=m:field(DummyValue,"ip_data",translate("China IP Data")) 
 s.rawhtml  = true
 s.template = "shadowsocksr/refresh"
 s.value =ip_count .. " " .. translate("Records")
+s.description ="https://easylist-downloads.adblockplus.org/easylistchina+easylist.txt"
 
 s=m:field(DummyValue,"check_port",translate("Check Server Port"))
 s.template = "shadowsocksr/checkport"
 s.value =translate("No Check")
+s.description = "socket on ports"
 
 t = m:section(Table, procs, translate("Running Details: ") .. "(/var/etc)")
 t:option(DummyValue, "PID", translate("PID"))

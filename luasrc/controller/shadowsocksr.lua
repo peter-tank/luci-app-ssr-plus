@@ -18,6 +18,12 @@ function index()
 	entry({"admin", "services", "shadowsocksr", "control"},cbi("shadowsocksr/control"),_("Access Control"), 30).leaf = true
 	
 	entry({"admin", "services", "shadowsocksr", "list"},form("shadowsocksr/list"),_("GFW List"), 40).leaf = true
+
+if nixio.fs.access("/usr/sbin/dnscrypt-proxy") then
+	entry({"admin", "services", "shadowsocksr", "dnscrypt-proxy"},cbi("dnscrypt-proxy/dnscrypt-proxy"),_("DNSCrypt Proxy"), 45).leaf = true
+	entry({"admin", "services", "shadowsocksr", "dnscrypt-servers"},cbi("dnscrypt-proxy/dnscrypt-servers"),_("DNSCrypt Servers"), 46).leaf = true
+	entry({"admin", "services", "shadowsocksr", "dnscrypt-servers"},arcombine(cbi("dnscrypt-proxy/dnscrypt-servers"), cbi("dnscrypt-proxy/dnscrypt-servers-config")),_("DNSCrypt Servers"), 47).leaf = true
+end
 	
 		entry({"admin", "services", "shadowsocksr", "advanced"},cbi("shadowsocksr/advanced"),_("Advanced Settings"), 50).leaf = true
 		
@@ -31,12 +37,14 @@ function index()
 	entry({"admin", "services", "shadowsocksr", "refresh"}, call("refresh_data"))
 	entry({"admin", "services", "shadowsocksr", "checkport"}, call("check_port"))
 	
-	entry({"admin", "services", "shadowsocksr", "log"},form("shadowsocksr/log"),_("Log"), 80).leaf = true
-	
 	entry({"admin", "services", "shadowsocksr","run"},call("act_status")).leaf=true
 	
 	entry({"admin", "services", "shadowsocksr", "ping"}, call("act_ping")).leaf=true
 	
+	entry({"admin", "services", "shadowsocksr", "fileread"}, call("act_read"), nil).leaf=true
+
+	entry({"admin", "services", "shadowsocksr", "logview"}, cbi("shadowsocksr/logview", {hideapplybtn=true, hidesavebtn=true, hideresetbtn=true}), _("Log") ,80).leaf=true
+
 end
 
 function act_status()
@@ -95,6 +103,21 @@ if set == "gfw_data" then
  else
   retstring ="-1"
  end
+elseif set == "dns_data" then
+ if nixio.fs.access("/usr/bin/wget-ssl") then
+  refresh_cmd="wget-ssl --no-check-certificate https://raw.githubusercontent.com/dyne/dnscrypt-proxy/master/dnscrypt-resolvers.csv -O /usr/share/dnscrypt-proxy/dnscrypt-resolvers.csv"
+ else
+  refresh_cmd="wget -O /usr/share/dnscrypt-proxy/dnscrypt-resolvers.csv http://raw.githubusercontent.com/dyne/dnscrypt-proxy/master/dnscrypt-resolvers.csv"
+ end
+ sret=luci.sys.call(refresh_cmd .. " 2>/dev/null")
+ if sret== 0 then
+  -- luci.sys.call("/usr/share/dnscrypt-proxy/csv2conf.sh")
+  icount = luci.sys.exec("cat /usr/share/dnscrypt-proxy/dnscrypt-resolvers.csv | wc -l")
+    retstring=tostring(tonumber(icount))
+ else
+   retstring ="-1"  
+ end
+
 elseif set == "ip_data" then
  refresh_cmd="wget -O- 'http://ftp.apnic.net/apnic/stats/apnic/delegated-apnic-latest'  2>/dev/null| awk -F\\| '/CN\\|ipv4/ { printf(\"%s/%d\\n\", $4, 32-log($5)/log(2)) }' > /tmp/china_ssr.txt"
  sret=luci.sys.call(refresh_cmd)
@@ -189,4 +212,18 @@ end)
 
 luci.http.prepare_content("application/json")
 luci.http.write_json({ ret=retstring })
+end
+
+-- called by XHR.get from logview.htm
+function act_read(lfile)
+	local NXFS = require "nixio.fs"
+	local HTTP = require "luci.http"
+	local lfile = HTTP.formvalue("lfile")
+	local ldata={}
+	ldata[#ldata+1] = NXFS.readfile(lfile) or "_nofile_"
+	if ldata[1] == "" then
+		ldata[1] = "_nodata_"
+	end
+	HTTP.prepare_content("application/json")
+	HTTP.write_json(ldata)
 end
