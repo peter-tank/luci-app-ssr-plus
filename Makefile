@@ -1,7 +1,7 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-ssr-plus
-PKG_VERSION:=3
+PKG_VERSION:=4
 PKG_RELEASE:=1
 
 PKG_CONFIG_DEPENDS:= CONFIG_PACKAGE_$(PKG_NAME)_INCLUDE_Shadowsocks \
@@ -55,6 +55,7 @@ define Build/Compile
 endef
 
 define Package/luci-app-ssr-plus/conffiles
+/etc/config/dnscrypt-proxy
 /etc/ssr_ip
 /etc/dnsmasq.ssr/gfw_list.conf
 endef

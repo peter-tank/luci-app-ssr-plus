@@ -39,7 +39,6 @@ o:depends("enable_switch", "1")
 o.default = 5
 
 -- [[ SOCKS5 Proxy ]]--
-if nixio.fs.access("/usr/bin/ssr-local") then
 s = m:section(TypedSection, "socks5_proxy", translate("SOCKS5 Proxy"))
 s.anonymous = true
 
@@ -55,7 +54,5 @@ o = s:option(Value, "local_port", translate("Local Port"))
 o.datatype = "port"
 o.default = 1080
 o.rmempty = false
-
-end
 
 return m

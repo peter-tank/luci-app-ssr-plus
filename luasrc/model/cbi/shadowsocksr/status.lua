@@ -11,7 +11,6 @@ local gfw_count=0
 local ad_count=0
 local ip_count=0
 local gfwmode=0
-local dns_count=0
 
 if nixio.fs.access("/etc/dnsmasq.ssr/gfw_list.conf") then
 gfwmode=1		
@@ -26,6 +25,15 @@ bold_off = [[</strong>]]
 
 local fs = require "nixio.fs"
 local sys = require "luci.sys"
+local uci = luci.model.uci.cursor()
+
+local dnslist_table = {}
+uci:foreach("dnscrypt-proxy", "resolver", function(s)
+	if s.name then
+		dnslist_table[s.name] = "[%s]::%s:%s" %{s.name, s.addr[0], s.port[0]}
+	end
+end)
+
 local kcptun_version=translate("Unknown")
 local kcp_file="/usr/bin/kcptun-client"
 if not fs.access(kcp_file)  then
@@ -41,6 +49,7 @@ else
         
 end
 
+
 if gfwmode==1 then 
  gfw_count = tonumber(sys.exec("cat /etc/dnsmasq.ssr/gfw_list.conf | wc -l"))/2
  if nixio.fs.access("/etc/dnsmasq.ssr/ad.conf") then
@@ -48,7 +57,7 @@ if gfwmode==1 then
  end
 end
 
-dns_count=tonumber(sys.exec("cat /usr/share/dnscrypt-proxy/dnscrypt-resolvers.csv | wc -l"))
+dns_count=tonumber(sys.exec("cat /usr/share/dnscrypt-proxy/dnscrypt-resolvers.md | wc -l"))
  
 if nixio.fs.access("/etc/china_ssr.txt") then 
  ip_count = sys.exec("cat /etc/china_ssr.txt | wc -l")
@@ -193,11 +202,10 @@ s.value = translate("No Check")
 s.template = "shadowsocksr/check"
 s.description = "/usr/bin/ssr-check www.baidu.com 80 3 1"
 
-s=m:field(DummyValue,"dns_data",translate("Update DNSCrypt Server List"))
-s.rawhtml  = true
-s.template = "shadowsocksr/refresh"
-s.value =tostring(math.ceil(dns_count)) .. " " .. translate("Records")
-s.description = "https://raw.githubusercontent.com/dyne/dnscrypt-proxy/master/dnscrypt-resolvers.csv"
+s=m:field(DummyValue,"nslook",translate("DNS Forward resolve test"))
+s.value = translate("No Check") 
+s.template = "shadowsocksr/checkport"
+s.description = "/usr/bin/nslookup www.google.com 127.0.0.1#5353"
 
 if gfwmode==1 then 
 s=m:field(DummyValue,"gfw_data",translate("GFW List Data")) 
@@ -211,7 +219,13 @@ s=m:field(DummyValue,"ip_data",translate("China IP Data"))
 s.rawhtml  = true
 s.template = "shadowsocksr/refresh"
 s.value =ip_count .. " " .. translate("Records")
-s.description ="https://easylist-downloads.adblockplus.org/easylistchina+easylist.txt"
+s.description = "http://ftp.apnic.net/apnic/stats/apnic/delegated-apnic-latest"
+
+s=m:field(DummyValue,"ads_data",translate("Advertising Data"))
+s.rawhtml  = true
+s.template = "shadowsocksr/refresh"
+s.value =tostring(math.ceil(ad_count)) .. " " .. translate("Records")
+s.description = "https://easylist-downloads.adblockplus.org/easylistchina+easylist.txt"
 
 s=m:field(DummyValue,"check_port",translate("Check Server Port"))
 s.template = "shadowsocksr/checkport"

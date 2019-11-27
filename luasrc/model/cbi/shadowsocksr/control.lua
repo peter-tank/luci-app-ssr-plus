@@ -62,6 +62,7 @@ o.cfgvalue = function(self, section)
 end
 o.write = function(self, section, value)
 	NXFS.writefile(escconf, value:gsub("\r\n", "\n"))
+	luci.sys.call("/usr/share/shadowsocksr/gfw2ipset.sh && /etc/init.d/dnsmasq restart")
 end
 o.remove = function(self, section, value)
 	NXFS.writefile(escconf, "")
@@ -80,6 +81,7 @@ o.cfgvalue = function(self, section)
 end
 o.write = function(self, section, value)
 	NXFS.writefile(blockconf, value:gsub("\r\n", "\n"))
+	luci.sys.call("/usr/share/shadowsocksr/gfw2ipset.sh && /etc/init.d/dnsmasq restart")
 end
 o.remove = function(self, section, value)
 	NXFS.writefile(blockconf, "")

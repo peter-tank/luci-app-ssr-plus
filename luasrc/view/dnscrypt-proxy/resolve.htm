@@ -6,11 +6,11 @@
 	{
 		btn.disabled = true;
 		btn.value    = '<%:Check...%>';
-		XHR.get('<%=luci.dispatcher.build_url("admin", "services", "shadowsocksr","checkport")%>',
+		XHR.get('<%=luci.dispatcher.build_url("admin", "services", "shadowsocksr","resolve_c")%>',
 			{ set:func },
 			function(x,rv)
 			{
-			var s = document.getElementById(func+'-status');
+			var s = document.getElementById(func + '-status');
 			if (s)
 			{
 

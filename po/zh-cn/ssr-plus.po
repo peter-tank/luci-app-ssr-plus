@@ -542,11 +542,17 @@ msgstr "订阅服务器节点前，请先更新订阅URL列表"
 msgid "Update All Subscribe Severs"
 msgstr "更新所有订阅服务器节点"
 
-msgid "Update DNSCrypt Server List"
-msgstr "更新DNSCrypt公开服务器列表"
+msgid "Update DNSCrypt Server Info"
+msgstr "更新DNSCrypt服务器信息"
 
-msgid "Use DNSCrypt Proxy listen port 5353"
+msgid "Use DNSCrypt Proxy listen port 5335"
 msgstr "使用DNSCrypt代理"
+
+msgid "DNS Forward with UDP Relay (127.0.0.1:5353)"
+msgstr "DNS由UDP中继转发(127.0.0.1:5353)"
+
+msgid "DNS Forward works with V2Ray & Trojan UDP relay only, else fallback to 8.8.4.4."
+msgstr "其中的DNS转发选项仅在UDP中继设置为V2Ray或Trojan时有效，否则等同8.8.4.4。
 
 msgid "DNSCrypt Servers"
 msgstr "DNSCrypt列表"
@@ -560,23 +566,260 @@ msgstr "全局设置"
 msgid "DNSCrypt Proxy"
 msgstr "DNSCrypt代理"
 
+msgid "DNSCrypt Proxy binary not found."
+msgstr "未发现DNSCrypt代理应用。"
+
+msgid "Binary Management"
+msgstr "应用管理"
+
+msgid "Binary update"
+msgstr "应用更新 "
+
+msgid "Current version:"
+msgstr "当前版本："
+
+msgid "Version2 atleast:"
+msgstr "至少应为第2版："
+
+msgid "Update to final release from:"
+msgstr "更新到最新正式版本："
+
 msgid "Listening address"
 msgstr "监听地址"
 
-msgid "Select Resolver"
-msgstr "特别指定"
+msgid "Enabled Resolvers"
+msgstr "订阅列表"
 
-msgid "DNSCrypt Resolvers List"
-msgstr "DNSCrypt服务器"
+msgid "Fallback resolver"
+msgstr "备用DNS"
 
-msgid "Official DNSCrypt List"
-msgstr "公开服务器"
+msgid "DNS resolver on query fails or for forced forwarding domain list."
+msgstr "用于解析DNSCrypt解析失败时，及强制转发名单里的域名。"
 
-msgid "reload dns server list from file:"
-msgstr "从文件刷新列表："
+msgid "Resolver White List"
+msgstr "节点白名单"
 
-msgid "DNSCrypt Servers Manage"
-msgstr "DNSCrypt服务器列表管理"
+msgid "Resolver white list by name, Allow *ALL* in default."
+msgstr "默认允许所有订阅内任意节点名的节点。"
+
+msgid "Resolver Black List"
+msgstr "节点黑名单"
+
+msgid "Resolver black list by name, disable specified resolver."
+msgstr "不连接节点名在此名单内的节点。"
+
+msgid "Forwarding2Fallback"
+msgstr "强制转发名单"
+
+msgid "Domains forced to fallback resolver, [.conf] file treat like dnsmasq configure."
+msgstr "强制由备用DNS解析的名单，可处理dnsmasq的配置文件[.conf]。"
+
+msgid "Domain Black List"
+msgstr "域名黑名单"
+
+msgid "Domains to blacklist, [.conf|.adblock] file treat like dnsmasq configure:"
+msgstr "拒绝解析的域名表，可处理dnsmasq及adbyby的配置文件[.conf|.adblock]："
+
+msgid "IP Address List"
+msgstr "IP黑名单"
+
+msgid "IP Address to blacklist, [.conf] file treat like dnsmasq configure:"
+msgstr "拒绝解析的IP名单，可处理dnsmasq的配置文件[.conf]："
+
+msgid "Net probe address"
+msgstr "找网DNS"
+
+msgid "Resolver on downloading resolver lists file."
+msgstr "用于解析订阅地址的DNS。"
+
+msgid "Force Options"
+msgstr "强制选项"
+
+msgid "ignore_system_dns"
+msgstr "忽略系统DNS"
+
+msgid "ipv4_servers"
+msgstr "连IPv4类型"
+
+msgid "ipv6_servers"
+msgstr "连IPv6类型"
+
+msgid "block_ipv6"
+msgstr "立即空答IPv6"
+
+msgid "dnscrypt_servers"
+msgstr "连DNSCrypt类型"
+
+msgid "doh_servers"
+msgstr "连DoH类型"
+
+msgid "require_dnssec"
+msgstr "DNSSEC验证"
+
+msgid "force_tcp"
+msgstr "只用TCP查询"
+
+msgid "require_nolog"
+msgstr "无记录验证"
+
+msgid "require_nofilter"
+msgstr "无过滤验证"
+
+msgid "cache"
+msgstr "缓存结果"
+
+msgid "offline_mode"
+msgstr "离线模式"
+
+msgid "use_syslog"
+msgstr "系统LOG"
+
+msgid "dnscrypt_ephemeral_keys"
+msgstr "不停刷新钥匙"
+
+msgid "cert_ignore_timestamp"
+msgstr "忽略证书时间戳"
+
+msgid "tls_disable_session_tickets"
+msgstr "TLS握手不缓存"
+
+msgid "lb_estimator"
+msgstr "节点监测"
+
+msgid "Response for blocked queries."
+msgstr "拒绝时回应"
+
+msgid "Load-balancing strategy"
+msgstr "负载均衡模式"
+
+msgid "Items forced for checking, will show your the defaults when unchecked all."
+msgstr "DNSCrypt节点过滤和其它设置项，清空后会显示为默认。"
+
+msgid "Static Stamp"
+msgstr "静态戳记"
+
+msgid "Mostly useful for testing your own servers."
+msgstr "主要用来测试自建DNSCrypt服务器。"
+
+msgid "One or more requred configure is missing!"
+msgstr "至少需要1个正确配置并更新的订阅！"
+
+msgid "Total %d records."
+msgstr "总计 %d 条记录。"
+
+msgid "Resolvers"
+msgstr "订阅"
+
+msgid "Available Resolvers:"
+msgstr "已知节点："
+
+msgid "DNSCrypt Resolver Info"
+msgstr "DNSCrypt节点信息"
+
+msgid "DNS Forward"
+msgstr " DNS转发"
+
+msgid "DNS Forward resolve test"
+msgstr "DNS转发检查"
+
+msgid "Check DNSCrypt resolver:"
+msgstr "检测DNS服务器："
+
+msgid "DNSCrypt Resolver ACL"
+msgstr "DNSCrypt节点控制"
+
+msgid "Allow all subscribed resolver servers in default.<br />The proxy will automatically pick the fastest, working servers from the list.<br />Resolver with detailed addresses is a must."
+msgstr "默认允许访问所有已知DNSCrypt节点，且自动选择最快的有效服务器。<br />只有存在详细地址的节点才能添加进来。"
+
+msgid "DNS Resolver Filter"
+msgstr "节点篩选器"
+
+msgid "Resolver"
+msgstr "解析服务器"
+
+msgid "Stamp"
+msgstr "戳记"
+
+msgid "Choose a resolver to configure"
+msgstr "请选择一个订阅来配置"
+
+msgid "Input the name to re-configure, if your resolvers not updated correctly and not showns up."
+msgstr "如果你的订阅没有出现在列表里(或未能正确更新)，请手动输入订阅名字新增(或重新)订阅。"
+
+msgid "Update the resolvers here by a new apply. Permently cover your modifications on specific resolve, if the source resolved successfully."
+msgstr "在此应用借以更新订阅。如订阅成功，将重建此订阅中所有节点信息。"
+
+msgid "Not a typical dnscrypt-proxy resolvers configure!"
+msgstr "非典型的DNSCrypt代理订阅配置！"
+
+msgid "Additional changes on apply:"
+msgstr "点应用后，将会产生如下附加配置的修改："
+
+msgid "Change this only on duplicating this resolver to another source when retrieving:"
+msgstr "修改此值并更新，借以新增自定订阅："
+
+msgid "Cache File"
+msgstr "缓存"
+
+msgid "Details File URL"
+msgstr "节点详情"
+
+msgid "Detailed resolvers JSON file `dnscrypt-proxy -json --list-all` or:"
+msgstr "有关节点情细情况的JSON文件，可在启动后手动执行`dnscrypt-proxy -json --list-all`来抓取，或："
+
+msgid "Update DNSCrypt Resolvers"
+msgstr "更新DNSCrypt订阅"
+
+msgid "Retrieve DNSCrypt resolvers:"
+msgstr "从订阅源更新："
+
+msgid "Reload DNS Resolver info:"
+msgstr "重载节点列表："
+
+msgid "DNSCrypt Resolvers update"
+msgstr "DNSCrypt订阅更新"
+
+msgid "Refresh Resolver Info"
+msgstr "更新节点信息"
+
+msgid "DNS resolve test"
+msgstr "DNS解析测试"
+
+msgid "Reload DNS resolver info:"
+msgstr "从缓存载入节点信息："
+
+msgid "DNSCrypt Resolvers Manage"
+msgstr "DNSCrypt订阅管理"
+
+msgid "Update the resolvers here by a new apply."
+msgstr "应用时会自动检查并更新订阅。
+
+msgid "DNSCrypt Resolver Editing -"
+msgstr "DNSCrypt节点编辑 - "
+
+msgid "Source URL"
+msgstr "订阅地址"
+
+msgid "Split MultiValues by a comma"
+msgstr "多个值以英文逗号分隔"
+
+msgid "MiniSign Key"
+msgstr "Mini验证"
+
+msgid "Resolvers singed by:"
+msgstr "订阅源签名公钥："
+
+msgid "No resolvers update."
+msgstr "离线模式"
+
+msgid "Force cached resolvers only:"
+msgstr "使用缓存文件，主要用来解决在订阅源无法正常获取时，DNSCrypt代理启动失败的状况："
+
+msgid "Selfsign Resolvers"
+msgstr "自签订阅"
+
+msgid "Mostly useful for build your own resolvers list on net probe fails. minisign binary needed:"
+msgstr "主要用于自定义的服务器订阅，需要安装minisign应用："
 
 msgid "Choose a file from the list to read."
 msgstr "请从列表选择文件来查看。"
@@ -595,3 +838,5 @@ msgstr "文件未找到或为空"
 
 msgid "No files found"
 msgstr "文件未找到"
+
+

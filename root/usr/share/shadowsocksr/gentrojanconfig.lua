@@ -2,10 +2,10 @@ local ucursor = require "luci.model.uci".cursor()
 local json = require "luci.jsonc"
 local server_section = arg[1]
 local proto = arg[2] 
-local usr_dns = arg[3]
-local usr_port = arg[4]
-local local_addr = arg[5]
-local local_port = arg[6]
+local local_addr = arg[3]
+local local_port = arg[4]
+local usr_dns = arg[5]
+local usr_port = arg[6]
 
 local server = ucursor:get_all("shadowsocksr", server_section)
 

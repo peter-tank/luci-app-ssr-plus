@@ -6,18 +6,26 @@ local DISP = require "luci.dispatcher"
 local HTTP = require "luci.http"
 local UCI = luci.model.uci.cursor()
 
-m = Map("shadowsocksr")
+local m = Map("shadowsocksr")
 
 -- log directory
 log_dir = UCI:get_first(m.config, "global", "log_dir") or "/tmp"
 run_dir = UCI:get_first(m.config, "global", "run_dir") or "/var/etc"
+dnsmasq_dir = UCI:get_first(m.config, "global", "dnsmasq_dir") or "/tmp/dnsmasq"
 local logfile_list = {}
 
-for path in (NXFS.glob("%s/ssr*" % log_dir) or function() end) do
+local logfs = {
+"%s/ssr*" % log_dir,
+"%s/*.*" % run_dir,
+"%s.*/*.*" % dnsmasq_dir,
+"%s/*.*" % "/usr/share/dnscrypt-proxy",
+"%s/dnscrypt_*" % log_dir,
+}
+local _, dir, ns, lv, lfile
+for _, dir in pairs(logfs) do
+for path in (NXFS.glob(dir) or function() end) do
 	logfile_list[#logfile_list+1] = path
 end
-for path in (NXFS.glob("%s/*.*" % run_dir) or function() end) do
-	logfile_list[#logfile_list+1] = path
 end
 
 ns = m:section(TypedSection, "_dummy", translate("File Viewer"))
