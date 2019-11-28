@@ -62,7 +62,7 @@ update() {
     local siteroot="$(uci_get uhttpd main home ""/www"")"
 
     [ -z "${cfg}" ] && exit 1
-    config_load "${cfg}"
+    NO_CALLBACK=1 config_load "${cfg}"
     local section="global" urls minisign_key cache_file details_json cache_mode selfsign
 
     config_get      urls             $section 'urls'             ''
@@ -95,7 +95,7 @@ update() {
     json_load "{'resolvers':$(cat $fname)}"
 
     local type resolvers resolver keys key val
-    local sname name addrs ports proto stamp country descryption dnssec ipv6 location nofilter nolog
+    local sname name addrs ports proto stamp country description dnssec ipv6 location nofilter nolog
     json_get_type type "resolvers"
     [ x"$type" == "xarray" ] || { echo "ERROR: JSON parse error!" > $LUCI_STATUS; sleep 3; return 4; }
 
@@ -121,24 +121,38 @@ update() {
 
         return 0
     }
-    NO_CALLBACK=1
     json_select "resolvers"
         json_get_keys resolvers
+        local icount=${resolvers##* }
         for resolver in $resolvers; do
            json_select "$resolver"
-               json_get_vars name proto stamp country descryption dnssec ipv6 nofilter nolog
+               json_get_vars name proto stamp country description dnssec ipv6 nofilter nolog
                json_get_multivalue addrs "addrs"
                json_get_multivalue ports "ports"
                json_get_multivalue location "location"
-               echo "INFO: resolver[$resolver/${resolvers##* }]: $name {${proto}://$addrs|$ports}" > $LUCI_STATUS
                sname=$(echo "$name" | sed 's/[^a-zA-Z0-9_]/_/g')
-               uci_add "$cfg" "$stype" "$sname"
-               for option in name proto addrs ports stamp location country descryption dnssec ipv6 nofilter nolog; do eval "uci_set \"$cfg\" \"$sname\" \"$option\" \"\$(echo \$$option | sed -e \"s/\'/,/g\")\""; done
+#               uci_add "$cfg" "$stype" "$sname"
+#               for option in name proto addrs ports stamp location country description dnssec ipv6 nofilter nolog; do eval "uci_set \"$cfg\" \"$sname\" \"$option\" \"\$(echo \$$option | sed -e \"s/\'/,/g\")\""; done
+               uci batch <<-EOB
+set "$cfg.$sname"="$stype"
+set "$cfg.$sname.name"="$name"
+set "$cfg.$sname.proto"="$proto"
+set "$cfg.$sname.addrs"="$addrs"
+set "$cfg.$sname.ports"="$ports"
+set "$cfg.$sname.stamp"="$stamp"
+set "$cfg.$sname.location"="$location"
+set "$cfg.$sname.country"="$country"
+set "$cfg.$sname.description"="$description"
+set "$cfg.$sname.dnssec"="$dnssec"
+set "$cfg.$sname.ipv6"="$ipv6"
+set "$cfg.$sname.nofilter"="$nofilter"
+set "$cfg.$sname.nolog"="$nolog"
+EOB
+               [ "${resolver:${#resolver}-1:1}" -eq 9 ] && uci_commit "$cfg" && echo "INFO: resolver[$resolver/${icount}]: $name {${proto}://$addrs|$ports}" > $LUCI_STATUS
            json_select ..
         done
     json_select ..
-    uci_commit "$cfg"
-
+    uci_commit "$cfg" && echo "DONE: resolver[$resolver/${icount}]: $name {${proto}://$addrs|$ports}" > $LUCI_STATUS
     json_cleanup
     json_set_namespace "pre"
     return 0

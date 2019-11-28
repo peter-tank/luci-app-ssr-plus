@@ -27,13 +27,6 @@ local fs = require "nixio.fs"
 local sys = require "luci.sys"
 local uci = luci.model.uci.cursor()
 
-local dnslist_table = {}
-uci:foreach("dnscrypt-proxy", "resolver", function(s)
-	if s.name then
-		dnslist_table[s.name] = "[%s]::%s:%s" %{s.name, s.addr[0], s.port[0]}
-	end
-end)
-
 local kcptun_version=translate("Unknown")
 local kcp_file="/usr/bin/kcptun-client"
 if not fs.access(kcp_file)  then
@@ -57,8 +50,6 @@ if gfwmode==1 then
  end
 end
 
-dns_count=tonumber(sys.exec("cat /usr/share/dnscrypt-proxy/dnscrypt-resolvers.md | wc -l"))
- 
 if nixio.fs.access("/etc/china_ssr.txt") then 
  ip_count = sys.exec("cat /etc/china_ssr.txt | wc -l")
 end
