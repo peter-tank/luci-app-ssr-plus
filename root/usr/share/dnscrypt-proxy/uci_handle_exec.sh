@@ -79,20 +79,23 @@ update() {
     json_set_namespace "urls" "pre"
     json_init
     json_load "{'urls':$(multivalue_parse $urls)}"
-    json_for_each_item cache_file 'urls' $siteroot $cache_mode$selfsign
+    json_for_each_item cache_file 'urls' "$siteroot" "$cache_mode$selfsign"
     json_cleanup
     json_set_namespace "pre"
 
-    local url="$details_json" stype="dnscrypt" fname
+    local url="$details_json" stype="dnscrypt" file
     [ -z "${url}" ] && return 2
 
-    fname=$(cache_file "$url" 0)
-    [ -z "${fname}" ] && { echo "ERROR: Download fails!" > $LUCI_STATUS; sleep 3; return 3; }
+    if [ x"${url:0:4}" == x"http" ]; then file=$(cache_file "${url}" $cache_mode$selfsign);
+    elif [ x"${url:0:1}" == x"/" ]; then file="${url}";
+    else file="$CACHE_DIR/${url}";
+    fi
+    [ x"$file" == x -o ! -f "${file}" ] && { echo "ERROR: JSON file not exist!" > $LUCI_STATUS; sleep 3; return 3; }
 
     json_set_namespace "resolvers" "pre"
     json_init
-    echo "INFO: JSON parsing [$fname]..." > $LUCI_STATUS
-    json_load "{'resolvers':$(cat $fname)}"
+    echo "INFO: JSON parsing [$file]..." > $LUCI_STATUS
+    json_load "{'resolvers':$(cat $file)}"
 
     local type resolvers resolver keys key val
     local sname name addrs ports proto stamp country description dnssec ipv6 location nofilter nolog
@@ -141,7 +144,7 @@ set "$cfg.$sname.addrs"="$addrs"
 set "$cfg.$sname.ports"="$ports"
 set "$cfg.$sname.stamp"="$stamp"
 set "$cfg.$sname.location"="$location"
-set "$cfg.$sname.country"="$country"
+set "$cfg.$sname.country"="${country:-Unkown}"
 set "$cfg.$sname.description"="$description"
 set "$cfg.$sname.dnssec"="$dnssec"
 set "$cfg.$sname.ipv6"="$ipv6"
@@ -152,7 +155,7 @@ EOB
            json_select ..
         done
     json_select ..
-    uci_commit "$cfg" && echo "DONE: resolver[$resolver/${icount}]: $name {${proto}://$addrs|$ports}" > $LUCI_STATUS
+    uci_commit "$cfg" && echo "DONE: resolver[$resolver/${icount}]: $name {${proto}://$addrs|$ports}" > $LUCI_STATUS && sleep 3
     json_cleanup
     json_set_namespace "pre"
     return 0
