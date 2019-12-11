@@ -38,6 +38,7 @@ define Build/Compile
 endef
 
 define Package/luci-app-ssr-plus/conffiles
+/etc/config/shadowsocksr
 /etc/ssr_ip
 /etc/dnsmasq.ssr/gfw_list.conf
 endef

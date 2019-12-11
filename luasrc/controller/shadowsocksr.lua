@@ -97,21 +97,6 @@ if set == "gfw_data" then
  else
   retstring ="-1"
  end
-elseif set == "dns_data" then
- if nixio.fs.access("/usr/bin/wget-ssl") then
-  refresh_cmd="wget-ssl --no-check-certificate https://raw.githubusercontent.com/dyne/dnscrypt-proxy/master/dnscrypt-resolvers.csv -O /usr/share/dnscrypt-proxy/dnscrypt-resolvers.csv"
- else
-  refresh_cmd="wget -O /usr/share/dnscrypt-proxy/dnscrypt-resolvers.csv http://raw.githubusercontent.com/dyne/dnscrypt-proxy/master/dnscrypt-resolvers.csv"
- end
- sret=luci.sys.call(refresh_cmd .. " 2>/dev/null")
- if sret== 0 then
-  -- luci.sys.call("/usr/share/dnscrypt-proxy/csv2conf.sh")
-  icount = luci.sys.exec("cat /usr/share/dnscrypt-proxy/dnscrypt-resolvers.csv | wc -l")
-    retstring=tostring(tonumber(icount))
- else
-   retstring ="-1"  
- end
-
 elseif set == "ip_data" then
  refresh_cmd="wget -O- 'http://ftp.apnic.net/apnic/stats/apnic/delegated-apnic-latest'  2>/dev/null| awk -F\\| '/CN\\|ipv4/ { printf(\"%s/%d\\n\", $4, 32-log($5)/log(2)) }' > /tmp/china_ssr.txt"
  sret=luci.sys.call(refresh_cmd)
@@ -217,36 +202,16 @@ luci.http.prepare_content("application/json")
 luci.http.write_json({ ret=retstring })
 end
 
-function exec(cmd, args, writer)
-	local os = require "os"
-	local nixio = require "nixio"
-
-	local fdi, fdo = nixio.pipe()
-	local pid = nixio.fork()
-
-	if pid > 0 then
-		fdo:close()
-
-		while true do
-			local buffer = fdi:read(2048)
-
-			if not buffer or #buffer == 0 then
-				break
-			end
-
-			if writer then
-				writer(buffer)
-			end
-		end
-
-		nixio.waitpid(pid)
-	elseif pid == 0 then
-		nixio.dup(fdo, nixio.stdout)
-		fdi:close()
-		fdo:close()
-		nixio.exece(cmd, args, nil)
-		nixio.stdout:close()
-		os.exit(1)
+-- called by XHR.get from logview.htm
+function act_read(lfile)
+	local fs = require "nixio.fs"
+	local http = require "luci.http"
+	local lfile = http.formvalue("lfile")
+	local ldata={}
+	ldata[#ldata+1] = fs.readfile(lfile) or "_nofile_"
+	if ldata[1] == "" then
+		ldata[1] = "_nodata_"
 	end
-	luci.util.exec("echo %s, %s>>/tmp/test;" % {cmd, table.concat(args,", ")})
+	http.prepare_content("application/json")
+	http.write_json(ldata)
 end
