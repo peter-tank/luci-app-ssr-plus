@@ -414,8 +414,8 @@ start_redir() {
         $ucmd -config $CONFIG_UDP_FILE >/dev/null 2>&1 &   
     elif [ "$utype" == "trojan" ] ;then
 	# UDP Relay by redsocks
-	local redsocks_file=$CONFIG_UDP_FILE
-	cat <<-EOF >$redsocks_file
+	local logread_file=$CONFIG_UDP_FILE
+	cat <<-EOF >$logread_file
 base {
 	log_debug = off;
 	log_info = on;
@@ -434,7 +434,9 @@ redudp {
 	udp_timeout_stream = 180;
 }
 EOF
-        /usr/sbin/redsocks -c "${redsocks_file}"
+        /usr/bin/ipt2socks -U -4 -b 0.0.0.0 -s $slocal_addr -p $slocal_port -l $udp_local_port >/dev/null 2>&1 &
+        echo "/usr/bin/ipt2socks -U -4 -b 0.0.0.0 -s $slocal_addr -p $slocal_port -l $udp_local_port" > ${logread_file}
+        /sbin/logread -f "${logread_file}" &
     fi
    fi
 
@@ -665,7 +667,7 @@ stop() {
 	if [ $(uci_get_by_type global monitor_enable) = 1 ] ;then
     kill -9 $(busybox ps -w | grep ssr-monitor | grep -v grep | awk '{print $1}') >/dev/null 2>&1
 	fi
-	for bin in "ssr-monitor" "ss-redir" "ssr-redir" "v2ray" "trojan" "redsocks" "ssr-server" "kcptun-client" "ssr-local"; do
+	for bin in "ssr-monitor" "ss-redir" "ssr-redir" "v2ray" "trojan" "ipt2socks" "logread" "ssr-server" "kcptun-client" "ssr-local"; do
 		busybox ps -w|grep "bin/$bin"|grep -v grep|sed -e 's/^ \+//;s/\([^ ]\+\) .*/kill -9 \1/'|sh
 	done
 	if [ -f /var/run/pdnsd.pid ] ;then

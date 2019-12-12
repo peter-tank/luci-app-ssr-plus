@@ -383,8 +383,8 @@ msgstr "ShadowSocksR Plus+ 设置（支持SS/SSR/V2RAY/TROJAN）"
 msgid "trojan"
 msgstr "特洛伊"
 
-msgid "redsocks"
-msgstr "RedSocks接管"
+msgid "logread"
+msgstr "ipt2socks接管"
 
 msgid "Same as UDP Server"
 msgstr "与UDP中继服务器相同"
