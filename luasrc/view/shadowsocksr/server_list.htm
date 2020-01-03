@@ -15,10 +15,12 @@ local dsp = require "luci.dispatcher"
 				index: i,
 				domain: pings[i].getAttribute("hint")
 			},
-			function(x, result) {
-				pings[result.index].innerHTML = (result.ping ? result.ping : "--") + " ms";
-			}
-		);
+			function(x, rv) {
+			if(x.readyState === 4 ) {
+			if(x.status === 200) {try{res = JSON.parse(x.responseText);}catch(e){res=null;}
+			if(res !==null && typeof(res) === "object") pings[res.index].innerHTML = "<font color=green>%s ms</font>".format(res.ping ? res.ping : "--");
+			}}});
+
 	}
 	//]]>
 </script>

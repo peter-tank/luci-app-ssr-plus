@@ -42,7 +42,7 @@ end
 
 function act_status()
   local e={}
-  e.running=luci.sys.call("busybox ps -w | grep ' /var/etc/shadowsocksr.json' | grep -v grep >/dev/null")==0
+  e.running=luci.sys.call("busybox ps -w | grep ' /var/etc/shadowsocksr' | grep -v grep >/dev/null")==0
   luci.http.prepare_content("application/json")
   luci.http.write_json(e)
 end
@@ -56,8 +56,7 @@ function act_ping()
 end
 
 function check_status()
-local set ="/usr/bin/ssr-check www." .. luci.http.formvalue("set") .. ".com 80 3 1"
-sret=luci.sys.call(set)
+local sret=luci.sys.call("/usr/bin/ssr-check www.%s.com 80 3 1" % luci.http.formvalue("set"))
 if sret== 0 then
  retstring ="0"
 else
@@ -169,7 +168,7 @@ local uci = luci.model.uci.cursor()
 local iret=1
 
 if set == "nslook" then
-retstring = luci.sys.exec("/usr/bin/nslookup www.google.com 127.0.0.1#5353")
+retstring = luci.sys.exec("/usr/bin/nslookup www.google.com 127.0.0.1#5353 2>&1")
 -- domains = {}
 -- domains.push("www.google.com")
 -- retjson = luci.util.ubus("network.rrdns", "lookup", {addrs={domains}, timerout=3000})
