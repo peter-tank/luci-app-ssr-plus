@@ -351,7 +351,7 @@ start_redir() {
 		[ "$password" != "" ] && password="--key "${password}
 		service_start /usr/bin/kcptun-client \
 			-r $kcp_server:$kcp_port \
-			-l :$server_port $password $kcp_param 
+			-l :$server_port $password $kcp_param
 		kcp_enable_flag=1
 	fi
 	
@@ -604,10 +604,11 @@ start() {
 	[ "$UDP_RELAY_SERVER" = "same" ] && UDP_RELAY_SERVER=$GLOBAL_SERVER
 
 	if [ "${GLOBAL_SERVER}${UDP_RELAY_SERVER}" == "nilnil" ] ; then
-		kcp_flag=1; switch_enable=0
+		kcp_enable=0; switch_enable=0
 		[ "${dns_mode}" == "dnscrypt" ] || dns_mode="disable"
 	fi
 
+	[ $kcp_enable = "1" ] && kcp_flag=1
 	utype=$(uci_get_by_name $UDP_RELAY_SERVER type)
 	udp_server=$(uci_get_by_name $UDP_RELAY_SERVER server)
 	udp_local_port=$(uci_get_by_name $UDP_RELAY_SERVER local_port)
