@@ -56,7 +56,7 @@ function act_ping()
 end
 
 function check_status()
-local sret=luci.sys.call("/usr/bin/ssr-check www.%s.com 80 3 1" % luci.http.formvalue("set"))
+local sret=luci.sys.call("tcping -q -c 1 -i 3 -p 80 www.%s.com" % luci.http.formvalue("set"))
 if sret== 0 then
  retstring ="0"
 else

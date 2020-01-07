@@ -186,12 +186,12 @@ end
 s=m:field(DummyValue,"google",translate("Google Connectivity"))
 s.value = translate("No Check") 
 s.template = "shadowsocksr/check"
-s.description = "/usr/bin/ssr-check www.google.com 80 3 1"
+s.description = "tcping -q -c 1 -i 3 -p 80 www.google.com"
 
 s=m:field(DummyValue,"baidu",translate("Baidu Connectivity")) 
 s.value = translate("No Check") 
 s.template = "shadowsocksr/check"
-s.description = "/usr/bin/ssr-check www.baidu.com 80 3 1"
+s.description = "tcping -q -c 1 -i 3 -p 80 www.baidu.com"
 
 s=m:field(DummyValue,"nslook",translate("DNS Forward resolve test"))
 s.value = translate("No Check") 
