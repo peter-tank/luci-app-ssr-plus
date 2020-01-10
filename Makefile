@@ -1,15 +1,20 @@
 include $(TOPDIR)/rules.mk
 
 PKG_NAME:=luci-app-ssr-plus
-PKG_VERSION:=5
+PKG_VERSION:=6
 PKG_RELEASE:=1
 
-PKG_CONFIG_DEPENDS:=CONFIG_PACKAGE_$(PKG_NAME)_INCLUDE_ShadowsocksR_Server \
+PKG_CONFIG_DEPENDS:=CONFIG_PACKAGE_$(PKG_NAME)_INCLUDE_ShadowsocksR \
+	CONFIG_PACKAGE_$(PKG_NAME)_INCLUDE_ShadowsocksR_Server \
 	CONFIG_PACKAGE_$(PKG_NAME)_INCLUDE_ShadowsocksR_Socks
 
 include $(INCLUDE_DIR)/package.mk
 
 define Package/$(PKG_NAME)/config
+	
+config PACKAGE_$(PKG_NAME)_INCLUDE_ShadowsocksR
+	bool "Include ShadowsocksR Client"
+	default y if x86_64
 	
 config PACKAGE_$(PKG_NAME)_INCLUDE_ShadowsocksR_Server
 	bool "Include ShadowsocksR Server"
@@ -26,7 +31,8 @@ define Package/luci-app-ssr-plus
 	SUBMENU:=3. Applications
 	TITLE:=SS/SSR/V2Ray LuCI interface
 	PKGARCH:=all
-	DEPENDS:=+shadowsocksr-libev-alt +ipset +ip-full +iptables-mod-tproxy +dnsmasq-full +coreutils +coreutils-base64 +bash +pdnsd-alt +wget \
+	DEPENDS:=+tcping +ipset +ip-full +iptables-mod-tproxy +dnsmasq-full +coreutils +coreutils-base64 +bash +pdnsd-alt +wget \
+            +PACKAGE_$(PKG_NAME)_INCLUDE_ShadowsocksR:shadowsocksr-libev-alt \
             +PACKAGE_$(PKG_NAME)_INCLUDE_ShadowsocksR_Server:shadowsocksr-libev-server \
             +PACKAGE_$(PKG_NAME)_INCLUDE_ShadowsocksR_Socks:shadowsocksr-libev-ssr-local
 endef
@@ -39,8 +45,6 @@ endef
 
 define Package/luci-app-ssr-plus/conffiles
 /etc/config/shadowsocksr
-/etc/ssr_ip
-/etc/dnsmasq.ssr/gfw_list.conf
 endef
 
 define Package/luci-app-ssr-plus/install
@@ -59,6 +63,14 @@ if [ -z "$${IPKG_INSTROOT}" ]; then
 	rm -f /tmp/luci-indexcache
 	chmod 755 /etc/init.d/shadowsocksr >/dev/null 2>&1
 	/etc/init.d/shadowsocksr enable >/dev/null 2>&1
+	uci -q batch <<-EOF >/dev/null
+		delete firewall.shadowsocksr
+		set firewall.shadowsocksr=include
+		set firewall.shadowsocksr.type=script
+		set firewall.shadowsocksr.path=/var/etc/shadowsocksr.include
+		set firewall.shadowsocksr.reload=1
+		commit firewall
+EOF
 fi
 exit 0
 endef
@@ -68,6 +80,11 @@ define Package/luci-app-ssr-plus/prerm
 if [ -z "$${IPKG_INSTROOT}" ]; then
      /etc/init.d/shadowsocksr disable
      /etc/init.d/shadowsocksr stop
+    echo "Removing firewall rule for shadowsocksr"
+	  uci -q batch <<-EOF >/dev/null
+		delete firewall.shadowsocksr
+		commit firewall
+EOF
 fi
 exit 0
 endef
