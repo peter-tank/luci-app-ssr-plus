@@ -124,18 +124,12 @@ elseif set == "ads_data" then
  end
  sret=luci.sys.call(refresh_cmd .. " 2>/dev/null")
  if sret== 0 then
-  if need_process == 1 then
+  if need_process > 0 then
     luci.sys.call("/usr/bin/ssr-ad")
   end
   icount = luci.sys.exec("cat /tmp/ad.conf | wc -l")
-  if tonumber(icount)>1000 then
-   if nixio.fs.access("/etc/dnsmasq.ssr/ad.conf") then
-    oldcount=luci.sys.exec("cat /etc/dnsmasq.ssr/ad.conf | wc -l")
-    
-   else
-    oldcount=0
-   end
-   
+  if tonumber(icount) > 1000 then
+   oldcount=luci.sys.exec("cat /etc/dnsmasq.ssr/ad.conf | wc -l")
    if tonumber(icount) ~= tonumber(oldcount) then
     luci.sys.exec("cp -f /tmp/ad.conf /etc/dnsmasq.ssr/ad.conf && cp -f /tmp/ad.conf /tmp/dnsmasq.ssr/ad.conf")
     retstring=tostring(math.ceil(tonumber(icount)))
@@ -187,9 +181,9 @@ uci:foreach(shadowsocksr, "servers", function(s)
 	ret=socket:connect(s.server,s.server_port)
 	if  tostring(ret) == "true" then
 	socket:close()
-	retstring =retstring .. "<font color='green'>[" .. server_name .. "] OK.</font><br />"
+	retstring =retstring .. '<font color="green">[%s] OK.</font><br />' % server_name
 	else
-	retstring =retstring .. "<font color='red'>[" .. server_name .. "] Error.</font><br />"
+	retstring =retstring .. '<font color="red">[%s] Error.</font><br />' % server_name
 	end	
 	if  iret== 0 then
 	luci.sys.call(" ipset del ss_spec_wan_ac " .. s.server)
