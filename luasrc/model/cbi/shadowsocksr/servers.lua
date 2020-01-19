@@ -45,10 +45,9 @@ o = s:option(Flag, "proxy", translate("Through proxy update"))
 o.rmempty = false
 o.description = translate("Through proxy update list, Not Recommended ")
 
-o = s:option(Button,"update",translate("Update All Subscribe Severs"))
-o.inputstyle = "apply"
-o.write = function() 
-  luci.sys.exec("bash /usr/share/shadowsocksr/subscribe.sh >>/tmp/ssrplus.log 2>&1")
+o = s:option(Button,"subscribe", translate("Update All Subscribe Severs"))
+o.rawhtml  = true
+o.template = "shadowsocksr/subscribe_nodes"
   luci.http.redirect(luci.dispatcher.build_url("admin", "services", "shadowsocksr", "servers"))
 end
 

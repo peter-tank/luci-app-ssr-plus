@@ -29,6 +29,7 @@ function index()
 	entry({"admin", "services", "shadowsocksr", "check"}, call("check_status"))
 	entry({"admin", "services", "shadowsocksr", "refresh"}, call("refresh_data"))
 	entry({"admin", "services", "shadowsocksr", "checkport"}, call("check_port"))
+	entry({"admin", "services", "shadowsocksr", "subscribe"}, call("subscribe_nodes"))
 	
 	entry({"admin", "services", "shadowsocksr","run"},call("act_status")).leaf=true
 	
@@ -51,6 +52,8 @@ function act_ping()
 	local e={}
 	e.index=luci.http.formvalue("index")
 	e.ping=luci.sys.exec("ping -c 1 -W 1 %q 2>&1 | grep -o 'time=[0-9]*.[0-9]' | awk -F '=' '{print$2}'"%luci.http.formvalue("domain"))
+	local domain = luci.http.formvalue("domain")
+	local port = luci.http.formvalue("port")
 	local iret = luci.sys.call('ipset -q add ss_spec_wan_ac "%s" 2>/dev/null' % domain)
 	local socket = nixio.socket("inet", "stream")
 	socket:setopt("socket", "rcvtimeo", 3)
@@ -202,6 +205,13 @@ end
 
 luci.http.prepare_content("application/json")
 luci.http.write_json({ ret=retstring })
+end
+
+function subscribe_nodes()
+	local iret=255
+	iret = luci.sys.call("/usr/bin/lua /usr/share/shadowsocksr/subscribe_nodes.lua  >> /tmp/ssrplus.log 2>&1")
+	luci.http.prepare_content("application/json")
+	luci.http.write_json({ ret = tostring(iret) })
 end
 
 -- called by XHR.get from logview.htm

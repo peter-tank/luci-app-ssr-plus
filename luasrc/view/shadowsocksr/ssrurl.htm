@@ -191,6 +191,7 @@
             document.getElementById('cbid.shadowsocksr.' + sid + '.server').value = part2[0];
             document.getElementById('cbid.shadowsocksr.' + sid + '.server_port').value = part2[1];
             document.getElementById('cbid.shadowsocksr.' + sid + '.password').value = part1[1];
+            document.getElementById('cbid.shadowsocksr.' + sid + '.tls').checked = true;
             if (param != undefined) {
                 document.getElementById('cbid.shadowsocksr.' + sid + '.alias').value = decodeURI(param);
             }
