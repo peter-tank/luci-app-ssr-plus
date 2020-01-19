@@ -72,7 +72,7 @@ o:value("dnscrypt", translate("Use DNSCrypt Proxy listen port 5335"))
 o:value("local", translate("Use Local DNS Service listen port 5335"))
 o.default = "pdnsd"
 
-o = s:option(ListValue, "tunnel_forward", translate("Anti-pollution DNS Server"), translate("DNS Forward works with V2Ray &amp; Trojan UDP relay only, else fallback to 8.8.4.4."))
+o = s:option(ListValue, "tunnel_forward", translate("Anti-pollution DNS Server"), luci.util.pcdata(translate("DNS Forward works with V2Ray & Trojan UDP relay only, else fallback to 8.8.4.4.")))
 o:value("127.0.0.1:5353", translate("DNS Forward with UDP Relay (127.0.0.1:5353)"))
 o:value("8.8.4.4:53", translate("Google Public DNS (8.8.4.4)"))
 o:value("8.8.8.8:53", translate("Google Public DNS (8.8.8.8)"))
@@ -88,5 +88,22 @@ o:value("1.1.1.1:53", translate("Cloudflare DNS (1.1.1.1)"))
 o:value("114.114.114.114:53", translate("Oversea Mode DNS-1 (114.114.114.114)"))
 o:value("114.114.115.115:53", translate("Oversea Mode DNS-2 (114.114.115.115)"))
 o:depends("dns_mode", "pdnsd")
+
+-- [[ SOCKS5 Proxy ]]--
+s = m:section(TypedSection, "socks5_proxy", translate("SOCKS5 Proxy"))
+s.anonymous = true
+
+o = s:option(ListValue, "server", translate("Server"))
+o:value("nil", translate("Disable"))
+o:value("same", translate("Same as UDP Server"))
+for _,key in pairs(key_table) do o:value(key,server_table[key]) end
+o:value("same", translate("Same as UDP Server"))
+o.default = "nil"
+o.rmempty = false
+
+o = s:option(Value, "local_port", translate("Local Port"))
+o.datatype = "port"
+o.default = 1080
+o.rmempty = false
 
 return m

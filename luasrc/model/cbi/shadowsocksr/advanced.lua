@@ -43,21 +43,27 @@ o.datatype = "uinteger"
 o:depends("enable_switch", "1")
 o.default = 3
 
--- [[ SOCKS5 Proxy ]]--
-s = m:section(TypedSection, "socks5_proxy", translate("SOCKS5 Proxy"))
+-- Server Subscribe
+s = m:section(TypedSection, "server_subscribe")
 s.anonymous = true
 
-o = s:option(ListValue, "server", translate("Server"))
-o:value("nil", translate("Disable"))
-o:value("same", translate("Same as UDP Server"))
-for _,key in pairs(key_table) do o:value(key,server_table[key]) end
-o:value("same", translate("Same as UDP Server"))
-o.default = "nil"
+o = s:option(Flag, "auto_update", translate("Auto Update"))
+o.rmempty = false
+o.description = translate("Auto Update Server subscription, GFW list and CHN route")
+
+o = s:option(ListValue, "auto_update_time", translate("Update time (every day)"))
+for t = 0,23 do
+o:value(t, t..":00")
+end
+o.default=2
 o.rmempty = false
 
-o = s:option(Value, "local_port", translate("Local Port"))
-o.datatype = "port"
-o.default = 1080
+o = s:option(Flag, "proxy", translate("Through proxy update"))
 o.rmempty = false
+o.description = translate("Through proxy update list, Not Recommended ")
+
+o = s:option(DynamicList, "subscribe_url", translate("Subscribe URL"))
+o.rmempty = true
+
 
 return m
