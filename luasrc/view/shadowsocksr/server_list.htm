@@ -24,17 +24,20 @@ local dsp = require "luci.dispatcher"
 			},
 			(x, result) => {
 				let col = '#ff0000';
-				if (result.ping) {
-					if (result.ping < 300) col = '#ff3300';
-					if (result.ping < 200) col = '#ff7700';
-					if (result.ping < 100) col = '#249400';
+				if (x.readyState === 4 && x.status === 200) {
+				try {ret=JSON.parse(x.responseText);} catch(e) {ret=null;}
+				if (ret != null && typeof(ret) === "object") {
+				if (ret.ping) {
+					if (ret.ping < 300) col = '#ff3300';
+					if (ret.ping < 200) col = '#ff7700';
+					if (ret.ping < 100) col = '#249400';
 				}
-				dom.innerHTML = `<font color="${col}">${(result.ping ? result.ping : "--") + " ms"}</font>`
-				if (result.socket) {
-					port.innerHTML = '<font color="#249400">ok</font>'
+				dom.innerHTML = `<font color="${col}">${(ret.ping ? ret.ping : "--") + " ms"}</font>`
+				if (ret.socket) {
+					port.innerHTML = '<font color="#249400"><%:Connect OK%></font>'
 				} else {
-					port.innerHTML = '<font color="#ff0000">fail</font>'
-				}
+					port.innerHTML = '<font color="#ff0000"><%:Connect Error%></font>'
+				}}}
 				res()
 			});
 		})
