@@ -13,6 +13,8 @@ local dsp = require "luci.dispatcher"
 	const ports = document.getElementsByClassName("socket-connected")
 	// 这也是卡的原罪 CGI 一下子处理不这么多
 	const xhr = (index) => {
+		doms[index].innerHTML = '<font color="#ee0000"><%:Check...%></font>';
+		ports[index].innerHTML = '<font color="#ee0000"><%:Port%><%:Check...%></font>';
 		return new Promise((res) => {
 			const dom = doms[index];
 			const port = ports[index];
