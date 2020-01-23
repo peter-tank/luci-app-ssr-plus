@@ -140,31 +140,92 @@ local function processData(szType, content)
         end
         result.alias = result.alias .. base64Decode(params.remarks, true)
     elseif szType == 'vmess' then
-        local info = luci.jsonc.parse(content)
-        result.type = 'v2ray'
-        result.server = info.add
-        result.server_port = info.port
-        result.tcp_guise = "none"
-        result.transport = info.net
-        result.alter_id = info.aid
-        result.vmess_id = info.id
-        result.alias = info.ps
-        result.ws_host = info.host
-        result.ws_path = info.path
-        result.h2_host = info.host
-        result.h2_path = info.path
-        if not info.security then
-            result.security = "auto"
-        end
-        if info.tls == "tls" or info.tls == "1" then
-            result.tls = "1"
-            result.tls_host = (result.ws_path ~= nil) and result.ws_path or ""
+        local info = {}
+        if content:sub(1,1) == "{" then
+            -- JSON format
+            info = luci.jsonc.parse(content)
+            result.type = 'v2ray'
+            result.server = info.add
+            result.server_port = info.port
+            result.tcp_guise = "none"
+            result.transport = info.net
+            result.alter_id = info.aid
+            result.vmess_id = info.id
+            result.alias = info.ps
+            result.ws_host = info.host
+            result.ws_path = info.path
+            result.h2_host = info.host
+            result.h2_path = info.path
+            if not info.security then
+                result.security = "auto"
+            end
+            if info.tls == "tls" or info.tls == "1" then
+                result.tls = "1"
+            else
+                result.tls = "0"
+            end
         else
-            result.tls = "0"
+            -- Non json format
+            local _dat = split(content, "?")
+            local hosts = base64Decode(_dat[1])
+            local algo, pass, host, port = hosts:match("([%w-.]+):([%w-.]+)@([%w-.]+):?([0-9]*)")
+            local params = {}
+            for k, v in pairs(split(_dat[2], '&')) do
+                local t = split(v, '=')
+                params[t[1]] = t[2]
+            end
+
+            result.type = 'v2ray'
+            result.server = host
+            result.server_port = port
+            result.security = algo
+            result.transport = params["network"]
+            result.alter_id = params["aid"]
+            result.vmess_id = pass
+            result.alias = UrlDecode(params["remark"])
+            result.insecure = params["allowInsecure"]
+            result.tcp_guise = "none"
+
+            if params["network"] == "ws" then
+                result.ws_path = params["wsPath"]
+                result.ws_host = host
+            end
+            if params["network"] == "h2" then
+                result.h2_host = host
+                result.h2_path = params["h2Path"]
+            end
+            if params["network"] == "kcp" then
+                result.kcp_enable = "1"
+                result.kcp_guise = "none"
+            end
+
+            if params["uplinkCapacity"] then
+                result.uplink_capacity = params["uplinkCapacity"]
+            end
+            if params["downlinkCapacity"] then
+                result.downlink_capacity = params["downlinkCapacity"]
+            end
+            if params["tls"] == "1" then
+                result.tls = "1"
+                if params["tlsServer"] then
+                    result.tls_host = params["tlsServer"]
+                else
+                    result.tls_host = host
+                end
+            end
+            if params["mux"] == "1" then
+                result.mux = "1"
+                result.concurrency = params["muxConcurrency"]
+            end
         end
     elseif szType == "ss" then
-        local info = content:sub(1, content:find("#") - 1)
-        local alias = content:sub(content:find("#") + 1, #content)
+        local idx_sp = 0
+        local alias = ""
+        if content:find("#") then
+            idx_sp = content:find("#")
+            alias = content:sub(idx_sp + 1, -1)
+        end
+        local info = content:sub(1, idx_sp - 1)
         local hostInfo = split(base64Decode(info, true), "@")
         local userinfo = base64Decode(hostInfo[1], true)
         local host = split(hostInfo[2], ":")
@@ -195,8 +256,13 @@ local function processData(szType, content)
         result.encrypt_method_ss = content.encryption
         result.alias = '[%s] %s' % {content.airport, content.remarks}
     elseif szType == "trojan" then
-        local info = content:sub(1, content:find("#") - 1)
-        local alias = content:sub(content:find("#") + 1, #content)
+        local idx_sp = 0
+        local alias = ""
+        if content:find("#") then
+            idx_sp = content:find("#")
+            alias = content:sub(idx_sp + 1, -1)
+        end
+        local info = content:sub(1, idx_sp - 1)
         local hostinfo = split(base64Decode(info, true), "@")
         local password = hostinfo[1]
         local host = split(hostInfo[2], ":")
@@ -225,6 +291,7 @@ local function processData(szType, content)
         result.encrypt_method_ss = content.encryption
         result.alias = '[%s] %s' % {content.airport, content.remarks}
     end
+    if result.alias == ''then result.alias = result.server ..':'.. result.server_port end
     return result, hash
 end
 -- wget
@@ -279,7 +346,7 @@ local execute = function()
                         elseif not szType then
                             local dat = split(v, "://")
                             if dat and dat[1] and dat[2] then
-                                if dat[1] == 'ss' then
+                                if dat[1] == 'ss' or dat[1] == 'trojan' then
                                     result, hash = processData(dat[1], dat[2])
                                 else
                                     result, hash = processData(dat[1], base64Decode(dat[2], true))
@@ -289,7 +356,7 @@ local execute = function()
                             log('跳过未知类型: ' .. szType)
                         end
                         -- log(hash, result)
-                        if hash and result then
+                        if hash or result then
                             if result.alias:find('过期时间') or
                                 result.alias:find('剩余流量') or
                                 result.alias:find('QQ群') or
