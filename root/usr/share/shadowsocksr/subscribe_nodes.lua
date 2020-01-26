@@ -291,7 +291,7 @@ local function processData(szType, content)
         result.encrypt_method_ss = content.encryption
         result.alias = '[%s] %s' % {content.airport, content.remarks}
     end
-    if result.alias == ''then result.alias = result.server ..':'.. result.server_port end
+    if not result.alias then result.alias =  '%s:%s' % {result.server, result.server_port} end
     return result, hash
 end
 -- wget
@@ -356,16 +356,16 @@ local execute = function()
                             log('跳过未知类型: ' .. szType)
                         end
                         -- log(hash, result)
-                        if hash or result then
+                        if hash and result then
                             if result.alias:find('过期时间') or
                                 result.alias:find('剩余流量') or
                                 result.alias:find('QQ群') or
                                 result.alias:find('官网') or
-                                result.server == ''
+                                not result.server
                             then
                                 log('丢弃无效节点: %s 节点, %s' % {result.type, result.alias})
                             else
-                                log('成功解析: %s 节点, %d' % {result.type, result.alias})
+                                log('成功解析: %s 节点, %s' % {result.type, result.alias})
                                 result.grouphashkey = groupHash
                                 tinsert(nodeResult[index], result)
                                 cache[groupHash][hash] = nodeResult[index][#nodeResult[index]]
