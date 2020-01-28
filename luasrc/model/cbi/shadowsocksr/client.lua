@@ -71,6 +71,7 @@ o:value("pdnsd", translate("Use Pdnsd tcp query and cache"))
 o:value("dnscrypt", translate("Use DNSCrypt Proxy listen port 5335"))
 o:value("local", translate("Use Local DNS Service listen port 5335"))
 o.default = "pdnsd"
+o.rmempty = false
 
 o = s:option(ListValue, "tunnel_forward", translate("Anti-pollution DNS Server"), luci.util.pcdata(translate("DNS Forward works with V2Ray & Trojan UDP relay only, else fallback to 8.8.4.4.")))
 o:value("127.0.0.1:5353", translate("DNS Forward with UDP Relay (127.0.0.1:5353)"))
