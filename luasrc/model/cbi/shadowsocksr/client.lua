@@ -57,12 +57,12 @@ o:value("gfw", translate("GFW List Mode"))
 o:value("router", translate("IP Route Mode"))
 o:value("all", translate("Global Mode"))
 o:value("oversea", translate("Oversea Mode"))
-o.default = gfw
+o.default = "gfw"
 
 o = s:option(ListValue, "dports", translate("Proxy Ports"))
 o:value("1", translate("All Ports"))
 o:value("2", translate("Only Common Ports"))
-o.default = 1
+o.default = "1"
 
 o = s:option(ListValue, "dns_mode", translate("Resolve Dns Mode"))
 o.widget  = "radio"

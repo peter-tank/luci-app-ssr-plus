@@ -241,9 +241,6 @@
                 document.getElementById('cbid.shadowsocksr.' + sid + '.tls').dispatchEvent(event);
                 document.getElementById('cbid.shadowsocksr.' + sid + '.tls_host').value = ssm.host;
             }
-            document.getElementById('cbid.shadowsocksr.' + sid + '.mux').checked = true;
-            document.getElementById('cbid.shadowsocksr.' + sid + '.mux').dispatchEvent(event);
-
             s.innerHTML = '<font color="green">导入V2ray配置信息成功</font>';
             return false;
         }
