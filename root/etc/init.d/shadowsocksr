@@ -138,7 +138,7 @@ elif [ "$stype" == "v2ray" ] ;then
 	smode="tcp"
 	[ $2 = "1" ] && smode="udp" && [ -n "$dnsforward" ] && smode="fdns"
 	[ $2 = "2" ] && smode="socks"
-elif [ "$stype" == "trojan" ] ;then
+elif [ "$stype" == "trojan" ] || [ "$stype" == "trojan-go" ] ;then
 	smode="nat"
 	[ $2 = "1" ] && {
 		smode="forward"
@@ -182,7 +182,7 @@ EOF
       elif [ "$stype" == "v2ray" ] ;then
         lua /usr/share/shadowsocksr/genv2config.lua $1 $smode $local_addr $local_port $usr_dns $usr_port $fdns_port > $config_file
         sed -i 's/\\//g' $config_file
-      elif [ "$stype" == "trojan" ] ;then
+      elif [ "$stype" == "trojan" ] || [ "$stype" == "trojan-go" ] ;then
         lua /usr/share/shadowsocksr/gentrojanconfig.lua $1 $smode $local_addr $local_port $usr_dns $usr_port $fdns_port > $config_file
         sed -i 's/\\//g' $config_file
 fi
@@ -365,6 +365,8 @@ start_redir() {
         sscmd="/usr/bin/v2ray/v2ray"
        elif [ "$stype" == "trojan" ] ;then
         sscmd="/usr/sbin/trojan"
+       elif [ "$stype" == "trojan-go" ] ;then
+        sscmd="/usr/sbin/trojan-go"
        else
         redir_tcp=0
     fi
@@ -378,6 +380,8 @@ start_redir() {
         ucmd="/usr/bin/v2ray/v2ray"
        elif [ "$utype" == "trojan" ] ;then
         ucmd="/usr/sbin/trojan"
+       elif [ "$utype" == "trojan-go" ] ;then
+        ucmd="/usr/sbin/trojan-go"
        else
         redir_udp=0
      fi
@@ -398,7 +402,7 @@ start_redir() {
       $sscmd -c $CONFIG_FILE $ARG_OTA -f /var/run/ssr-retcp_$i.pid >>/tmp/ssrplus.log 2>&1
     done
     echo "$(date "+%Y-%m-%d %H:%M:%S") Shadowsocks/ShadowsocksR $threads Threads Started!" >> /tmp/ssrplus.log  
-  elif [ "$stype" == "v2ray" ] ;then
+  elif [ "$stype" == "v2ray" ] || [ "$stype" == "trojan-go" ] ;then
     $sscmd -config $CONFIG_FILE >>/tmp/ssrplus.log 2>&1 &
     echo "$(date "+%Y-%m-%d %H:%M:%S") $($sscmd -version | head -1) Started!" >> /tmp/ssrplus.log
   elif [ "$stype" == "trojan" ] ;then
@@ -441,6 +445,13 @@ redudp {
 EOF
         /usr/bin/ipt2socks -U -4 -b 0.0.0.0 -s $slocal_addr -p $slocal_port -l $udp_local_port >/dev/null 2>&1 &
         echo "/usr/bin/ipt2socks -U -4 -b 0.0.0.0 -s $slocal_addr -p $slocal_port -l $udp_local_port" > ${logread_file}
+        /sbin/logread -f "${logread_file}" &
+    elif [ "$utype" == "trojan-go" ] ;then
+	# UDP Relay skiped for trojan-go
+	local logread_file=$CONFIG_UDP_FILE
+	cat <<-EOF >$logread_file
+skiped
+EOF
         /sbin/logread -f "${logread_file}" &
     fi
 
@@ -566,13 +577,15 @@ start_local() {
         sscmd="/usr/bin/v2ray/v2ray"
        elif [ "$ltype" == "trojan" ] ;then
         sscmd="/usr/sbin/trojan"
+       elif [ "$ltype" == "trojan-go" ] ;then
+        sscmd="/usr/sbin/trojan-go"
     fi
     if [ "${ltype::2}" == "ss" ] ;then
 	$sscmd -c $CONFIG_SOCK5_FILE -u  \
 		-l $slocal_port \
 		-b $slocal_addr \
 		-f /var/run/ssr-local.pid >/dev/null 2>&1
-       elif [ "$ltype" == "v2ray" ] ;then
+       elif [ "$ltype" == "v2ray" ] || [ "$ltype" == "trojan-go" ];then
 	$sscmd -config $CONFIG_SOCK5_FILE >/dev/null 2>&1 &
        elif [ "$ltype" == "trojan" ] ;then
 	$sscmd --config $CONFIG_SOCK5_FILE >/dev/null 2>&1 &
@@ -683,7 +696,7 @@ stop() {
 		/etc/init.d/dnsmasq restart >/dev/null 2>&1
 	fi
 
-	for bin in "ssr-monitor" "ss-redir" "ssr-redir" "v2ray" "trojan" "ipt2socks" "logread" "ssr-server" "kcptun-client" "ssr-local"; do
+	for bin in "ssr-monitor" "ss-redir" "ssr-redir" "v2ray" "trojan-go" "trojan" "ipt2socks" "logread" "ssr-server" "kcptun-client" "ssr-local"; do
 		busybox ps -w|grep "bin/$bin"|grep -v grep|sed -e 's/^ \+//;s/\([^ ]\+\) .*/kill -9 \1/'|sh
 	done
 	if [ -f /var/run/pdnsd.pid ] ;then

@@ -86,7 +86,7 @@ local protocol = {
 	"auth_chain_f",
 }
 
-obfs = {
+local obfs = {
 	"plain",
 	"http_simple",
 	"http_post",
@@ -101,6 +101,14 @@ local securitys = {
     "chacha20-poly1305"
 }
 
+local force_fp = {
+	"",
+	"auto",
+	"firefox",
+	"chrome",
+	"ios",
+	"randomized",
+}
 
 m = Map(shadowsocksr, translate("Edit ShadowSocksR Server"))
 m.redirect = luci.dispatcher.build_url("admin/services/shadowsocksr/servers")
@@ -119,18 +127,21 @@ o.rawhtml  = true
 o.template = "shadowsocksr/ssrurl"
 o.value =sid
 
-o = s:option(ListValue, "type", translate("Server Node Type"))
+type = s:option(ListValue, "type", translate("Server Node Type"))
 if nixio.fs.access("/usr/sbin/trojan") then
-o:value("trojan", translate("Trojan"))
+type:value("trojan", translate("Trojan"))
+end
+if nixio.fs.access("/usr/sbin/trojan-go") then
+type:value("trojan-go", translate("Trojan-Go"))
 end
 if nixio.fs.access("/usr/bin/v2ray/v2ray") then
-o:value("v2ray", translate("V2Ray"))
+type:value("v2ray", translate("V2Ray"))
 end
-o:value("ssr", translate("ShadowsocksR"))
+type:value("ssr", translate("ShadowsocksR"))
 if nixio.fs.access("/usr/bin/ss-redir") then
-o:value("ss", translate("Shadowsocks"))
+type:value("ss", translate("Shadowsocks"))
 end
-o.description = translate("Using incorrect encryption mothod may causes service fail to start")
+type.description = translate("Using incorrect encryption mothod may causes service fail to start")
 
 o = s:option(Value, "alias", translate("Alias(optional)"))
 
@@ -153,6 +164,7 @@ o.rmempty = true
 o:depends("type", "ssr")
 o:depends("type", "ss")
 o:depends("type", "trojan")
+o:depends("type", "trojan-go")
 
 o = s:option(ListValue, "encrypt_method", translate("Encrypt Method"))
 for _, v in ipairs(encrypt_methods) do o:value(v) end
@@ -209,6 +221,11 @@ o:value("quic", "QUIC")
 o.rmempty = true
 o:depends("type", "v2ray")
 
+o = s:option(Flag, "trojan_ws", translate("Trojan-Go WebSocket"))
+o.default = "0"
+o.rmempty = true
+o:depends("type", "trojan-go")
+
 -- [[ TCP部分 ]]--
 
 -- TCP伪装
@@ -233,12 +250,24 @@ o.rmempty = true
 -- WS域名
 o = s:option(Value, "ws_host", translate("WebSocket Host"))
 o:depends("transport", "ws")
+o:depends("trojan_ws", "1")
 o.rmempty = true
 
 -- WS路径
 o = s:option(Value, "ws_path", translate("WebSocket Path"))
 o:depends("transport", "ws")
+o:depends("trojan_ws", "1")
 o.rmempty = true
+
+-- For Trojan-Go only
+o = s:option(Value, "obfuscation_password", translate("Obfs Password"))
+o:depends("trojan_ws", "1")
+o.rmempty = true
+
+o = s:option(Flag, "double_tls", translate("Double TLS"))
+o:depends("trojan_ws", "1")
+o.default = "1"
+o.rmempty = false
 
 -- [[ H2部分 ]]--
 
@@ -332,17 +361,25 @@ o = s:option(Flag, "insecure", translate("allowInsecure"))
 o.rmempty = true
 o:depends("type", "v2ray")
 o:depends("type", "trojan")
+o:depends("type", "trojan-go")
 
 
 -- [[ TLS ]]--
 o = s:option(Flag, "tls", translate("TLS"))
-o.rmempty = true
-o.default = "0"
+o.rmempty = false
+o.default = "1"
 o:depends("type", "v2ray")
 o:depends("type", "trojan")
+o:depends("type", "trojan-go")
 
 o = s:option(Value, "tls_host", translate("TLS Host"))
 o:depends("tls", "1")
+o.rmempty = true
+
+-- For Trojan-Go
+o = s:option(ListValue, "fingerprint", translate("Finger Print"))
+for _, v in ipairs(force_fp) do o:value(v) end
+o:depends("type", "trojan-go")
 o.rmempty = true
 
 -- [[ Mux ]]--
@@ -350,6 +387,7 @@ o = s:option(Flag, "mux", translate("Mux"))
 o.rmempty = true
 o.default = "0"
 o:depends("type", "v2ray")
+o:depends("type", "trojan-go")
 
 o = s:option(Value, "concurrency", translate("Concurrency"))
 o.datatype = "uinteger"
@@ -363,6 +401,7 @@ o.default = "0"
 o:depends("type", "ssr")
 o:depends("type", "ss")
 o:depends("type", "trojan")
+o:depends("type", "trojan-go")
 
 o = s:option(Flag, "switch_enable", translate("Enable Auto Switch"))
 o.rmempty = false
@@ -385,9 +424,9 @@ o = s:option(Value, "kcp_port", translate("KcpTun Port"))
 o.datatype = "port"
 o.default = 4000
 function o.validate(self, value, section)
-		local kcp_file="/usr/bin/kcptun-client"
-		local enable = kcp_enable:formvalue(section) or kcp_enable.disabled
-		if enable == kcp_enable.enabled then
+    local kcp_file="/usr/bin/kcptun-client"
+    local enable = kcp_enable:formvalue(section) or kcp_enable.disabled
+    if enable == kcp_enable.enabled then
     if not fs.access(kcp_file)  then
         return nil, translate("Haven't a Kcptun executable file")
     elseif  not isKcptun(kcp_file) then
