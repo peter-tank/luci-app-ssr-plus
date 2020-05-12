@@ -183,7 +183,7 @@ EOF
         lua /usr/share/shadowsocksr/genv2config.lua $1 $smode $local_addr $local_port $usr_dns $usr_port $fdns_port > $config_file
         sed -i 's/\\//g' $config_file
       elif [ "$stype" == "trojan" ] || [ "$stype" == "trojan-go" ] ;then
-        lua /usr/share/shadowsocksr/gentrojanconfig.lua $1 $smode $local_addr $local_port $usr_dns $usr_port $fdns_port > $config_file
+        lua /usr/share/shadowsocksr/gentrojanconfig.lua $1 $smode $3 $local_addr $local_port $usr_dns $usr_port $fdns_port > $config_file
         sed -i 's/\\//g' $config_file
 fi
 }
@@ -333,7 +333,7 @@ EOF
 
 
 start_redir() {
-	local ARG_OTA sscmd ucmd threads pid_file
+	local ARG_OTA sscmd ucmd pid_file
 	case "$(uci_get_by_name $GLOBAL_SERVER auth_enable)" in
 		1|on|true|yes|enabled) ARG_OTA="-A";;
 		*) ARG_OTA="";;
@@ -385,32 +385,27 @@ start_redir() {
        else
         redir_udp=0
      fi
-  
-  if [ "$(uci_get_by_type global threads 0)" = "0" ] ;then
-    threads=$(cat /proc/cpuinfo | grep 'processor' | wc -l)
-  else
-    threads=$(uci_get_by_type global threads)
-  fi
 
-  [ ${redir_tcp} -eq 1 ] && gen_config_file $GLOBAL_SERVER 0
+  [ ${redir_tcp} -eq 1 ] && gen_config_file $GLOBAL_SERVER 0 ${threads}
 	
   if [ "$stype" == "ss" -o "$stype" == "ssr" ] ;then
     local last_config_file=$CONFIG_FILE
     local pid_file="/var/run/ssr-retcp.pid"
-    for i in $(seq 1 $threads)  
-    do 
-      $sscmd -c $CONFIG_FILE $ARG_OTA -f /var/run/ssr-retcp_$i.pid >>/tmp/ssrplus.log 2>&1
+    for i in $(seq 1 $threads); do
+     $sscmd -c $CONFIG_FILE $ARG_OTA -f /var/run/ssr-retcp_$i.pid >>/tmp/ssrplus.log 2>&1
     done
     echo "$(date "+%Y-%m-%d %H:%M:%S") Shadowsocks/ShadowsocksR $threads Threads Started!" >> /tmp/ssrplus.log  
   elif [ "$stype" == "v2ray" ] || [ "$stype" == "trojan-go" ] ;then
     $sscmd -config $CONFIG_FILE >>/tmp/ssrplus.log 2>&1 &
     echo "$(date "+%Y-%m-%d %H:%M:%S") $($sscmd -version | head -1) Started!" >> /tmp/ssrplus.log
   elif [ "$stype" == "trojan" ] ;then
-    $sscmd --config $CONFIG_FILE >> /tmp/ssrplus.log 2>&1 &
-    echo "$(date "+%Y-%m-%d %H:%M:%S") $($sscmd --version 2>&1 | head -1) Started!" >> /tmp/ssrplus.log
+    for i in $(seq 1 $threads); do
+     $sscmd --config $CONFIG_FILE >> /tmp/ssrplus.log 2>&1 &
+     echo "$(date "+%Y-%m-%d %H:%M:%S") $($sscmd --version 2>&1 | head -1) ${i}/${threads} Started!" >> /tmp/ssrplus.log
+    done
   fi
 
-    [ ${redir_udp} -eq 1 ] && gen_config_file $UDP_RELAY_SERVER 1
+    [ ${redir_udp} -eq 1 ] && gen_config_file $UDP_RELAY_SERVER 1 ${threads}
     if [ "$utype" == "ss" -o "$utype" == "ssr" ] ;then
       case "$(uci_get_by_name $UDP_RELAY_SERVER auth_enable)" in
         1|on|true|yes|enabled) ARG_OTA="-A";;
@@ -418,7 +413,9 @@ start_redir() {
       esac		
       last_config_file=$CONFIG_UDP_FILE
       pid_file="/var/run/ssr-reudp.pid"
-      $ucmd -c $last_config_file $ARG_OTA -U -f /var/run/ssr-reudp.pid >/dev/null 2>&1
+      for i in $(seq 1 $threads); do
+       $ucmd -c $last_config_file $ARG_OTA -U -f /var/run/ssr-reudp_$i.pid >/dev/null 2>&1
+      done
     elif [ "$stype" == "v2ray" ] ; then
         $ucmd -config $CONFIG_UDP_FILE >/dev/null 2>&1 &   
     elif [ "$utype" == "trojan" ] ;then
@@ -568,7 +565,7 @@ start_local() {
 	[ "$local_server" == "nil" ] && return 0
 	local ltype=$(uci_get_by_name $local_server type)
 	mkdir -p /var/run /var/etc
-	gen_config_file $local_server 2
+	gen_config_file $local_server 2 1
     if [ "$ltype" == "ss" ] ;then
         sscmd="/usr/bin/ss-local"
        elif [ "$ltype" == "ssr" ] ;then
@@ -601,7 +598,7 @@ rules() {
 
 start() {
 	local GLOBAL_SERVER UDP_RELAY_SERVER stype kcp_server kcp_enable udp_server udp_local_port
-	local utype slocal_port slocal_addr dns_mode dnsstr dnscrypt pdnsd dnsforward
+	local utype slocal_port slocal_addr dns_mode dnsstr dnscrypt pdnsd dnsforward threads
 	if [ -z "$switch_server" ] ;then
 		GLOBAL_SERVER=$(uci_get_by_type global global_server)
 	else
@@ -620,6 +617,12 @@ start() {
 	if [ "${GLOBAL_SERVER}${UDP_RELAY_SERVER}" == "nilnil" ] ; then
 		kcp_enable=0; switch_enable=0
 		[ "${dns_mode}" == "dnscrypt" ] || dns_mode="disable"
+	fi
+
+	if [ "$(uci_get_by_type global threads 0)" = "0" ] ;then
+		threads=$(cat /proc/cpuinfo | grep 'processor' | wc -l)
+	else
+		threads=$(uci_get_by_type global threads)
 	fi
 
 	[ $kcp_enable = "1" ] && kcp_flag=1
@@ -661,7 +664,7 @@ EOF
 	start_local
 
 	local ENABLE_SERVER=$(uci_get_by_type global global_server)
-	[ "$ENABLE_SERVER" = "nil" ] || start_server	
+	[ "$ENABLE_SERVER" = "nil" ] || start_server
 	
 	if [ $(uci_get_by_type global monitor_enable) = 1 ] ;then
 		let total_count=server_count+redir_tcp+redir_udp+tunnel_enable+kcp_enable_flag+local_enable+switch_enable+dnscrypt_enable_flag

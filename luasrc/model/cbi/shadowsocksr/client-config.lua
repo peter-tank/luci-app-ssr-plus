@@ -102,7 +102,7 @@ local securitys = {
 }
 
 local force_fp = {
-	"",
+	"disable",
 	"auto",
 	"firefox",
 	"chrome",
@@ -374,13 +374,14 @@ o:depends("type", "trojan-go")
 
 o = s:option(Value, "tls_host", translate("TLS Host"))
 o:depends("tls", "1")
-o.rmempty = true
+o.rmempty = false
 
 -- For Trojan-Go
 o = s:option(ListValue, "fingerprint", translate("Finger Print"))
 for _, v in ipairs(force_fp) do o:value(v) end
 o:depends("type", "trojan-go")
-o.rmempty = true
+o.default = "randomized"
+o.rmempty = false
 
 -- [[ Mux ]]--
 o = s:option(Flag, "mux", translate("Mux"))
@@ -391,8 +392,8 @@ o:depends("type", "trojan-go")
 
 o = s:option(Value, "concurrency", translate("Concurrency"))
 o.datatype = "uinteger"
-o.rmempty = true
-o.default = "8"
+o.rmempty = false
+o.default = "4"
 o:depends("mux", "1")
 
 o = s:option(Flag, "fast_open", translate("TCP Fast Open"))
