@@ -358,7 +358,7 @@ o.rmempty = true
 
 -- [[ allowInsecure ]]--
 o = s:option(Flag, "insecure", translate("allowInsecure"))
-o.rmempty = true
+o.rmempty = false
 o:depends("type", "v2ray")
 o:depends("type", "trojan")
 o:depends("type", "trojan-go")
