@@ -18,7 +18,7 @@ config socks5_proxy
 	option local_address '0.0.0.0'
 
 config access_control
-	option wan_bp_list '/etc/china_ssr.txt'
+	option wan_bp_list '/etc/ssr/china_ssr.txt'
 	option lan_ac_mode 'b'
 	option router_proxy '1'
 	list wan_fw_ips '149.154.160.0/20'
@@ -33,7 +33,9 @@ config server_global
 config server_subscribe
 	option proxy '0'
 	option auto_update_time '2'
-	option auto_update '1'
+	option auto_update '0'
+	option switch '1'
+	option filter_words '过期时间/剩余流量/QQ群/官网/防失联地址/回国'
 
 
 

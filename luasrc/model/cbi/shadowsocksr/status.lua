@@ -50,8 +50,8 @@ if gfwmode==1 then
  end
 end
 
-if nixio.fs.access("/etc/china_ssr.txt") then 
- ip_count = sys.exec("cat /etc/china_ssr.txt | wc -l")
+if nixio.fs.access("/etc/ssr/china_ssr.txt") then
+ ip_count = sys.exec("cat /etc/ssr/china_ssr.txt | wc -l")
 end
 
 function processlist()

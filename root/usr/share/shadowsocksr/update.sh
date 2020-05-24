@@ -6,8 +6,8 @@ chnroute_data=$(wget -O- -t 3 -T 3 http://ftp.apnic.net/apnic/stats/apnic/delega
 }
 
 if [ -s "/tmp/china_ssr.txt" ];then
-  if ( ! cmp -s /tmp/china_ssr.txt /etc/china_ssr.txt );then
-    mv /tmp/china_ssr.txt /etc/china_ssr.txt
+  if ( ! cmp -s /tmp/china_ssr.txt /etc/ssr/china_ssr.txt );then
+    mv /tmp/china_ssr.txt /etc/ssr/china_ssr.txt
   fi
 fi
 

@@ -383,6 +383,12 @@ msgstr "服务器管理"
 msgid "Auto Update"
 msgstr "自动更新"
 
+msgid "Subscribe Default Auto-Switch"
+msgstr "订阅新节点自动切换设置"
+
+msgid "Subscribe new add server default Auto-Switch on"
+msgstr "订阅加入的新节点默认开启自动切换"
+
 msgid "Through proxy update"
 msgstr "通过代理更新"
 
@@ -423,7 +429,13 @@ msgid "Update time (every day)"
 msgstr "更新时间 (每天)"
 
 msgid "Auto Update Server subscription, GFW list and CHN route"
+
 msgstr "自动更新服务器订阅、GFW列表和 CHN路由表"
+msgid "Subscribe Filter Words"
+msgstr "订阅节点关键字过滤"
+
+msgid "Filter Words splited by /"
+msgstr "命中关键字的节点将被丢弃。多个关键字用 / 分隔"
 
 msgid "Subscribe URL(SS/SSR/V2RAY/TROJAN)"
 msgstr "SS/SSR/V2RAY/TROJAN订阅URL地址"

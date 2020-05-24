@@ -47,6 +47,15 @@ o.default = 3
 s = m:section(TypedSection, "server_subscribe")
 s.anonymous = true
 
+o = s:option(Flag, "switch", translate("Subscribe Default Auto-Switch"))
+o.rmempty = false
+o.description = translate("Subscribe new add server default Auto-Switch on")
+o.default="1"
+
+o = s:option(Value, "filter_words", translate("Subscribe Filter Words"))
+o.rmempty = true
+o.description = translate("Filter Words splited by /")
+
 o = s:option(DynamicList, "subscribe_url", translate("Subscribe URL(SS/SSR/V2RAY/TROJAN)"))
 o.rmempty = true
 

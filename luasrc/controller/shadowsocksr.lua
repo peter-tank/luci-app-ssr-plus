@@ -114,9 +114,9 @@ elseif set == "ip_data" then
  sret=luci.sys.call(refresh_cmd)
  icount = luci.sys.exec("cat /tmp/china_ssr.txt | wc -l")
  if  sret== 0 and tonumber(icount)>1000 then
-  oldcount=luci.sys.exec("cat /etc/china_ssr.txt | wc -l")
+  oldcount=luci.sys.exec("cat /etc/ssr/china_ssr.txt | wc -l")
   if tonumber(icount) ~= tonumber(oldcount) then
-   luci.sys.exec("cp -f /tmp/china_ssr.txt /etc/china_ssr.txt")
+   luci.sys.exec("cp -f /tmp/china_ssr.txt /etc/ssr/china_ssr.txt")
    luci.sys.call("/usr/share/shadowsocksr/chinaipset.sh")
    retstring=tostring(tonumber(icount))
   else

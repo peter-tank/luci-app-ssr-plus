@@ -4,6 +4,8 @@ PKG_NAME:=luci-app-ssr-plus
 PKG_VERSION:=8
 PKG_RELEASE:=1
 
+PKG_BUILD_DIR:=$(BUILD_DIR)/$(PKG_NAME)
+
 PKG_CONFIG_DEPENDS:=CONFIG_PACKAGE_$(PKG_NAME)_INCLUDE_ShadowsocksR \
 	CONFIG_PACKAGE_$(PKG_NAME)_INCLUDE_ShadowsocksR_Server \
 	CONFIG_PACKAGE_$(PKG_NAME)_INCLUDE_ShadowsocksR_Socks
@@ -25,11 +27,11 @@ config PACKAGE_$(PKG_NAME)_INCLUDE_ShadowsocksR_Socks
 	default y if x86_64
 endef
 
-define Package/luci-app-ssr-plus
+define Package/$(PKG_NAME)
  	SECTION:=luci
 	CATEGORY:=LuCI
 	SUBMENU:=3. Applications
-	TITLE:=SS/SSR/V2Ray LuCI interface
+	TITLE:=SS/SSR/V2Ray/Trojan/Trojan-Go LuCI interface
 	PKGARCH:=all
 	DEPENDS:=+tcping +ipset +ip-full +iptables-mod-tproxy +dnsmasq-full +coreutils +coreutils-base64 +pdnsd-alt +wget \
             +PACKAGE_$(PKG_NAME)_INCLUDE_ShadowsocksR:shadowsocksr-libev-alt \
@@ -43,20 +45,53 @@ endef
 define Build/Compile
 endef
 
-define Package/luci-app-ssr-plus/conffiles
+define Package/$(PKG_NAME)/conffiles
 /etc/config/shadowsocksr
 endef
 
-define Package/luci-app-ssr-plus/install
-	$(INSTALL_DIR) $(1)/usr/lib/lua/luci
-	cp -pR ./luasrc/* $(1)/usr/lib/lua/luci
-	$(INSTALL_DIR) $(1)/
-	cp -pR ./root/* $(1)/
+define Package/$(PKG_NAME)/install
+	$(INSTALL_DIR) $(1)/etc/ssr
+	$(INSTALL_DATA) ./root/etc/ssr/* $(1)/etc/ssr/
+
+	$(INSTALL_DIR) $(1)/etc/config
+	$(INSTALL_CONF) ./root/etc/config/shadowsocksr $(1)/etc/config/shadowsocksr
+
+	$(INSTALL_DIR) $(1)/etc/dnsmasq.oversea
+	$(INSTALL_DATA) ./root/etc/dnsmasq.oversea/* $(1)/etc/dnsmasq.oversea/
+
+	$(INSTALL_DIR) $(1)/etc/dnsmasq.ssr
+	$(INSTALL_DATA) ./root/etc/dnsmasq.ssr/* $(1)/etc/dnsmasq.ssr/
+
+	$(INSTALL_DIR) $(1)/etc/init.d
+	$(INSTALL_BIN) ./root/etc/init.d/* $(1)/etc/init.d/
+
+	$(INSTALL_DIR) $(1)/etc/uci-defaults
+	$(INSTALL_BIN) ./root/etc/uci-defaults/* $(1)/etc/uci-defaults/
+
+	$(INSTALL_DIR) $(1)/usr/bin
+	$(INSTALL_BIN) ./root/usr/bin/* $(1)/usr/bin/
+
+	$(INSTALL_DIR) $(1)/usr/share/shadowsocksr
+	$(INSTALL_BIN) ./root/usr/share/shadowsocksr/*.sh $(1)/usr/share/shadowsocksr/
+	$(INSTALL_DATA) ./root/usr/share/shadowsocksr/*.lua $(1)/usr/share/shadowsocksr/
+
+	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/controller
+	$(INSTALL_DATA) ./luasrc/controller/*.lua $(1)/usr/lib/lua/luci/controller/
+
+	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/model/cbi/shadowsocksr
+	$(INSTALL_DATA) ./luasrc/model/cbi/shadowsocksr/*.lua $(1)/usr/lib/lua/luci/model/cbi/shadowsocksr/
+
+	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/view/shadowsocksr
+	$(INSTALL_DATA) ./luasrc/view/shadowsocksr/* $(1)/usr/lib/lua/luci/view/shadowsocksr/
+
+	$(INSTALL_DIR) $(1)/usr/share/rpcd/acl.d
+	$(INSTALL_DATA) ./usr/share/rpcd/acl.d/* $(1)/usr/share/rpcd/acl.d/
+
 	$(INSTALL_DIR) $(1)/usr/lib/lua/luci/i18n
 	po2lmo ./po/zh-cn/ssr-plus.po $(1)/usr/lib/lua/luci/i18n/ssr-plus.zh-cn.lmo
 endef
 
-define Package/luci-app-ssr-plus/postinst
+define Package/$(PKG_NAME)/postinst
 #!/bin/sh
 if [ -z "$${IPKG_INSTROOT}" ]; then
 	( . /etc/uci-defaults/luci-ssr-plus ) && rm -f /etc/uci-defaults/luci-ssr-plus
@@ -89,4 +124,4 @@ fi
 exit 0
 endef
 
-$(eval $(call BuildPackage,luci-app-ssr-plus))
+$(eval $(call BuildPackage,$(PKG_NAME)))
