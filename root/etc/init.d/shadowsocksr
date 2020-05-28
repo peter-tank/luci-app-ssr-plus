@@ -272,15 +272,18 @@ start_dnscrypt() {
 
 start_pdnsd() {
 	local usr_dns="$1"
-  local usr_port="$2"
+	local usr_port="$2"
 	local stype="$3"
+	local cmd="$4"
+	local param=config
   
 	local tcp_dns_list="208.67.222.222, 208.67.220.220"
 	[ -n "$dnsforward" -a "${utype::2}" == "ss" ] && usr_dns=
 	[ -z "$usr_dns" ] && usr_dns="8.8.4.4" && usr_port="53"
-	[ -n "$dnsforward" ] && {
-		# DNS server forward
-        	$sscmd --config $CONFIG_DNS_FILE >> /tmp/ssrplus.log 2>&1 &
+	[ -n "$dnsforward" ] && [ -f "${CONFIG_DNS_FILE}" ] && {
+		# DNS server forward for trojan/trojan-go
+		[ "$stype" == "trojan" ] && param=-config
+		$cmd -${param} $CONFIG_DNS_FILE >> /tmp/ssrplus.log 2>&1 &
 	}
   [ -d /var/etc ] || mkdir -p /var/etc
 
@@ -472,7 +475,7 @@ EOF
         ipset add ss_spec_wan_ac $dnsserver nomatch 2>/dev/null  
     fi
     }
-    start_pdnsd $dnsserver $dnsport $stype
+    start_pdnsd $dnsserver $dnsport $utype "$ucmd"
     pdnsd_enable_flag=1
   fi
 	
