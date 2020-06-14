@@ -76,11 +76,8 @@ msgstr "混淆参数（可选）"
 msgid "Finger Print"
 msgstr "指纹伪造"
 
-msgid "Obfs Password"
-msgstr "混淆密码"
-
-msgid "Double TLS"
-msgstr "双重验证"
+msgid "Shadowsocks2"
+msgstr "双重加密"
 
 msgid "Enable Tunnel(DNS)"
 msgstr "启用隧道（DNS）转发"

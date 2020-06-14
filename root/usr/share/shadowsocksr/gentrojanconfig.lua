@@ -46,9 +46,12 @@ local trojan = {
     websocket = (server.trojan_ws == "1") and {
         enabled = true,
         path = (server.ws_path ~= nil) and server.ws_path or "/",
-        hostname = (server.ws_host ~= nil) and server.ws_host or (server.tls_host ~= nil and server.tls_host or server.server),
-        obfuscation_password = server.obfuscation_password,
-        double_tls = (server.double_tls == "1") and true or false
+        hostname = (server.ws_host ~= nil) and server.ws_host or (server.tls_host ~= nil and server.tls_host or server.server)
+        } or nil,
+    shadowsocks = (server.ss_aead == "1") and {
+        enabled = true,
+        method = (server.ss_aead_method ~= nil) and server.ss_aead_method or "AEAD_AES_128_GCM",
+        password = (server.ss_aead_pwd ~= nil) and server.ss_aead_pwd or ""
         } or nil,
         tcp = {
             no_delay = true,
@@ -58,7 +61,4 @@ local trojan = {
             fast_open_qlen = 20
         }
 }
-if trojan.websocket ~= nil and trojan.websocket.double_tls then
-    trojan.websocket.ssl = json.parse(json.stringify(trojan.ssl))
-end
 print(json.stringify(trojan, 1))

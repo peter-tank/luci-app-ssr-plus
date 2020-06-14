@@ -103,11 +103,16 @@ local securitys = {
 
 local force_fp = {
 	"disable",
-	"auto",
 	"firefox",
 	"chrome",
 	"ios",
-	"randomized",
+}
+
+local encrypt_methods_ss_aead = {
+	"DUMMY",
+	"AEAD_CHACHA20_POLY1305",
+	"AEAD_AES_128_GCM",
+	"AEAD_AES_256_GCM",
 }
 
 m = Map(shadowsocksr, translate("Edit ShadowSocksR Server"))
@@ -260,14 +265,21 @@ o:depends("trojan_ws", "1")
 o.rmempty = true
 
 -- For Trojan-Go only
-o = s:option(Value, "obfuscation_password", translate("Obfs Password"))
-o:depends("trojan_ws", "1")
-o.rmempty = true
-
-o = s:option(Flag, "double_tls", translate("Double TLS"))
-o:depends("trojan_ws", "1")
-o.default = "1"
+o = s:option(Flag, "ss_aead", translate("Shadowsocks2"))
+o:depends("type", "trojan-go")
+o.default = "0"
 o.rmempty = false
+
+o = s:option(ListValue, "ss_aead_method", translate("Encrypt Method"))
+for _, v in ipairs(encrypt_methods_ss_aead) do o:value(v, v:upper()) end
+o.default = "AEAD_AES_128_GCM"
+o.rmempty = false
+o:depends("ss_aead", "1")
+
+o = s:option(Value, "ss_aead_pwd", translate("Password"))
+o.password = true
+o.rmempty = true
+o:depends("ss_aead", "1")
 
 -- [[ H2部分 ]]--
 
