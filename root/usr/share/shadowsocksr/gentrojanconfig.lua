@@ -9,9 +9,11 @@ local usr_dns = arg[6]
 local usr_port = arg[7]
 
 local server = ucursor:get_all("shadowsocksr", server_section)
+local cipher = "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:AES128-SHA:AES256-SHA:DES-CBC3-SHA"
+local cipher13 = "TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384"
 
 local trojan = {
-    -- error = "/var/ssrplus.log",
+    -- error = "/tmp/ssrplus.log",
     log_level = 3,
     run_type = proto,
     local_addr = local_addr,
@@ -28,16 +30,15 @@ local trojan = {
         verify = (server.insecure == nil or server.insecure == "0") and true or false,
         verify_hostname = (server.insecure == nil or server.insecure == "0") and true or false,
         cert = "",
-        cipher = "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:AES128-SHA:AES256-SHA:DES-CBC3-SHA",
-        cipher_tls13 = "TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384",
+        cipher =  server.fingerprint == nil and cipher or (server.fingerprint == "disable" and cipher13 .. ":" .. cipher or ""),
+        cipher_tls13 = server.fingerprint == nil and cipher13 or nil,
         sni = (server.tls_host ~= nil) and server.tls_host or (server.ws_host ~= nil and server.ws_host or server.server),
         alpn = (server.trojan_ws == "1") and {} or {"h2", "http/1.1"},
         fingerprint = (server.fingerprint ~= nil and server.fingerprint ~= "disable" ) and server.fingerprint or "",
         curve = "",
         reuse_session = true,
-        session_ticket = true,
+        session_ticket = false,
         } or nil,
-    buffer_size = 32,
     mux = (server.mux == "1") and {
         enabled = true,
         concurrency = tonumber(server.concurrency),
