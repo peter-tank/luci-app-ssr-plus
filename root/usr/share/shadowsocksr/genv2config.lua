@@ -71,6 +71,7 @@ local v2ray = {
             tlsSettings = {
 		serverName = (server.tls_host ~= nil) and server.tls_host or ((server.ws_host ~= nil) and server.ws_host or ""),
 		allowInsecure = (server.insecure == "1") and true or false,
+		disableSessionResumption = (server.session_ticket ~= "1") and true or false,
 		},
             kcpSettings = (server.transport == "kcp") and {
               mtu = tonumber(server.mtu),

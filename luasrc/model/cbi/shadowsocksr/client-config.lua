@@ -388,11 +388,16 @@ o = s:option(Value, "tls_host", translate("TLS Host"))
 o:depends("tls", "1")
 o.rmempty = false
 
+o = s:option(Flag, "session_ticket", translate("Session Ticket"))
+o:depends("tls", "1")
+o.rmempty = false
+o.default = "0"
+
 -- For Trojan-Go
 o = s:option(ListValue, "fingerprint", translate("Finger Print"))
 for _, v in ipairs(force_fp) do o:value(v) end
 o:depends("type", "trojan-go")
-o.default = "randomized"
+o.default = "firefox"
 o.rmempty = false
 
 -- [[ Mux ]]--

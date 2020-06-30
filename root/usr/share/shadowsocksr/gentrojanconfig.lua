@@ -37,7 +37,7 @@ local trojan = {
         fingerprint = (server.fingerprint ~= nil and server.fingerprint ~= "disable" ) and server.fingerprint or "",
         curve = "",
         reuse_session = true,
-        session_ticket = false,
+        session_ticket = (server.session_ticket == "1") and true or false,
         } or nil,
     mux = (server.mux == "1") and {
         enabled = true,
