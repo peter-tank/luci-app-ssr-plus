@@ -421,32 +421,7 @@ start_redir() {
       done
     elif [ "$stype" == "v2ray" ] ; then
         $ucmd -config $CONFIG_UDP_FILE >/dev/null 2>&1 &   
-    elif [ "$utype" == "trojan" ] ;then
-	# UDP Relay by redsocks
-	local logread_file=$CONFIG_UDP_FILE
-	cat <<-EOF >$logread_file
-base {
-	log_debug = off;
-	log_info = on;
-	log = "syslog:local7";
-	daemon = on;
-	redirector = iptables;
-}
-redudp {
-	local_ip = 127.0.0.1;
-	local_port = $udp_local_port;
-	ip = $slocal_addr;
-	port = $slocal_port;
-	dest_ip = 127.0.0.1;
-	dest_port = $dns_port;
-	udp_timeout = 30;
-	udp_timeout_stream = 180;
-}
-EOF
-        /usr/bin/ipt2socks -U -4 -b 0.0.0.0 -s $slocal_addr -p $slocal_port -l $udp_local_port >/dev/null 2>&1 &
-        echo "/usr/bin/ipt2socks -U -4 -b 0.0.0.0 -s $slocal_addr -p $slocal_port -l $udp_local_port" > ${logread_file}
-        /sbin/logread -f "${logread_file}" &
-    elif [ "$utype" == "trojan-go" ] ;then
+    elif [ "$utype" == "trojan" ] || [ "$utype" == "trojan-go" ] ;then
 	# UDP Relay skiped for trojan-go
 	local logread_file=$CONFIG_UDP_FILE
 	cat <<-EOF >$logread_file
@@ -561,10 +536,7 @@ start_server() {
 
 start_local() {
 	local local_server=$(uci_get_by_type socks5_proxy server)
-	[ ! "$utype" == "trojan" -a "$local_server" = "nil" ] && return 1
-	if [ "$local_server" = "same" -o "$local_server" = "nil" ]; then
-		local_server=$UDP_RELAY_SERVER
-	fi
+	[ "$local_server" == "same" ] && local_server=$UDP_RELAY_SERVER
 	[ "$local_server" == "nil" ] && return 0
 	local ltype=$(uci_get_by_name $local_server type)
 	mkdir -p /var/run /var/etc
