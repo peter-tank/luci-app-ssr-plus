@@ -47,7 +47,7 @@ local trojan = {
     websocket = (server.trojan_ws == "1") and {
         enabled = true,
         path = (server.ws_path ~= nil) and server.ws_path or "/",
-        hostname = (server.ws_host ~= nil) and server.ws_host or (server.tls_host ~= nil and server.tls_host or server.server)
+        name = (server.ws_host ~= nil) and server.ws_host or (server.tls_host ~= nil and server.tls_host or server.server)
         } or nil,
     shadowsocks = (server.ss_aead == "1") and {
         enabled = true,
