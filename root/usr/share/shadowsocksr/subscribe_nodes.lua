@@ -178,13 +178,25 @@ local function processData(szType, content)
 			content = content:sub(0, idx_sp - 1)
 		end
 		local hostInfo = split(base64Decode(content), "@")
-		local host = split(hostInfo[2], ":")
-		local userinfo = base64Decode(hostInfo[1])
+		local hostInfoLen = #hostInfo
+		local host = nil
+		local userinfo = nil
+		if hostInfoLen > 2 then
+			host = split(hostInfo[hostInfoLen], ":")
+			userinfo = {}
+			for i = 1, hostInfoLen - 1 do
+				tinsert(userinfo, hostInfo[i])
+			end
+			userinfo = table.concat(userinfo, '@')
+		else
+			host = split(hostInfo[2], ":")
+			userinfo = base64Decode(hostInfo[1])
+		end
 		local method = userinfo:sub(1, userinfo:find(":") - 1)
 		local password = userinfo:sub(userinfo:find(":") + 1, #userinfo)
 		result.alias = UrlDecode(alias)
 		result.server = host[1]
-		if host[2]:find("/%?") then
+		if host[2] and host[2]:find("/%?") then
 			local query = split(host[2], "/%?")
 			result.server_port = query[1]
 			local params = {}
