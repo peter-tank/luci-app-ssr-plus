@@ -364,7 +364,7 @@
 				opt.set('ws_path', queryParam.path || '/');
 			}}
 			if (queryParam.encryption) {
-				var r = queryParam.encryption.match(/^(ss);([^;]*);(.*)$/),
+				var r = queryParam.encryption.match(/^(ss);([^;:]*)[;:](.*)$/),
 				enc = {type: r[1], method: r[2], password: r[3]};
 			if (enc) {
 			if (enc.type == 'ss') {
