@@ -56,7 +56,7 @@ o = s:option(Value, "filter_words", translate("Subscribe Filter Words"))
 o.rmempty = true
 o.description = translate("Filter Words splited by /")
 
-o = s:option(DynamicList, "subscribe_url", translate("Subscribe URL(SS/SSR/V2RAY/TROJAN)"))
+o = s:option(DynamicList, "subscribe_url", translate("Subscribe URL(SS/SSR/VMESS/TROJAN[-GO])"))
 o.rmempty = true
 
 o = s:option(Flag, "auto_update", translate("Auto Update"))

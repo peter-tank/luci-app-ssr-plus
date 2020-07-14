@@ -113,6 +113,9 @@ local encrypt_methods_ss_aead = {
 	"AEAD_CHACHA20_POLY1305",
 	"AEAD_AES_128_GCM",
 	"AEAD_AES_256_GCM",
+	"CHACHA20-IETF-POLY1305",
+	"AES-128-GCM",
+	"AES-256-GCM",
 }
 
 m = Map(shadowsocksr, translate("Edit ShadowSocksR Server"))
@@ -127,7 +130,7 @@ s = m:section(NamedSection, sid, "servers")
 s.anonymous = true
 s.addremove   = false
 
-o = s:option(DummyValue,"ssr_url","SS/SSR/V2RAY/TROJAN URL") 
+o = s:option(DummyValue,"ssr_url",translate("Fill From Shared"))
 o.rawhtml  = true
 o.template = "shadowsocksr/ssrurl"
 o.value =sid

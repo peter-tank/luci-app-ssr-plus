@@ -50,6 +50,28 @@
 			return '';
 		return b64decsafe(v);
 	}
+	function parseUrl(url) {
+		var m = url.match(/^(([^:\/?#]+:)?(?:\/\/((?:([^\/?#:]*)([^\/?#:]*)@)?([^\/?#:]*)(?::([^\/?#:]*))?)))?([^?#]*)(\?[^#]*)?(#.*)?$/),
+			r = {
+				hash: m[10] || "", // #asd
+				host: m[3] || "", // localhost:257
+				hostname: m[6] || "", // localhost
+				href: m[0] || "", // http://username:password@localhost:257/deploy/?asd=asd#asd
+				origin: m[1] || "", // http://username:password@localhost:257
+				pathname: m[8] || (m[1] ? "/" : ""), // /deploy/
+				port: m[7] || "", // 257
+				protocol: m[2] || "", // http:
+				search: m[9] || "", // ?asd=asd
+				passwd: m[4] || "", // username
+				removed: m[5] || "" // password
+			};
+		if (r.protocol.length == 2) {
+			r.protocol = "file:///" + r.protocol.toUpperCase();
+			r.origin = r.protocol + "//" + r.host;
+		}
+		r.href = r.origin + r.pathname + r.search + r.hash;
+		return m && r;
+	}
 	
 	function export_ssr_url(btn, urlname, sid) {
 		var opt = {
@@ -106,9 +128,9 @@
 			textarea.select();
 			try {
 				document.execCommand("copy"); // Security exception may be thrown by some browsers.
-				s.innerHTML = "<font color='green'><%:Copy SSR to clipboard successfully.%></font>";
+				s.innerHTML = "<font color='green'><%:Share to clipboard successfully.%></font>";
 			} catch (ex) {
-				s.innerHTML = "<font color='red'><%:Unable to copy SSR to clipboard.%></font>";
+				s.innerHTML = "<font color='red'><%:Unable share to clipboard.%></font>";
 			} finally {
 				document.body.removeChild(textarea);
 			}
@@ -158,9 +180,9 @@
 		}
 		opt.base = 'cbid.shadowsocksr.' + sid
 		opt.fallback = urlname + '-dummy';
-		var ssrurl = prompt("在这里黏贴配置链接 ssr:// | ss:// | vmess:// | trojan:// | trojan-go://", "");
+		var ssrurl = prompt('<%:Paste Share Link Here%>', '');
 		if (ssrurl == null || ssrurl == "") {
-			s.innerHTML = "<font color='red'>用户取消</font>";
+			s.innerHTML = "<font color='red'><%:User cancelled.%></font>";
 			return false;
 		}
 		s.innerHTML = "";
@@ -179,7 +201,7 @@
 			console.log(param);
 			var ssm = url0.match(/^(.+):([^:]+):([^:]*):([^:]+):([^:]*):([^:]+)/);
 			if (!ssm || ssm.length < 7) {
-				s.innerHTML = "<font color='red'>无效格式</font>";
+				s.innerHTML = "<font color='red'><%:Invalid Share Link Format.%></font>";
 				return false;
 			}
 			var pdict = {};
@@ -263,24 +285,18 @@
 				}
 			}
 		} else if (ssu[0] == "trojan") {
-			var url0 = "", param = "";
-			var ploc = ssu[1].indexOf("#");
-			if (ploc > 0) {
-				url0 = ssu[1].substr(0, ploc);
-				param = ssu[1].substr(ploc + 1);
-			} else {
-				url0 = ssu[1];
+			var stype = "trojan"
+			var m = parseUrl(ssrurl);
+			console.log(m.search);
+			var password = m.passwd;
+			if (password == "") {
+				s.innerHTML = "<font color='red'><%:Invalid Share Link Format.%></font>";
+				return false;
 			}
-			console.log(param);
-			var stype = "trojan";
-			var team = url0.split('@');
-			var password = team[0];
-			var serverPart = team[1].split(':');
-			var others = serverPart[1].split('?');
-			var port = others[0];
 			var queryParam = {};
-			if (others.length > 1) {
-				var queryParams = others[1];
+			if (m.search.length > 1) {
+				var query = m.search.split('?');
+				var queryParams = query[1];
 				var queryArray = queryParams.split('&');
 				for (i = 0; i < queryArray.length; i++) {
 					var params = queryArray[i].split('=');
@@ -292,31 +308,75 @@
 			}
 			opt.set('type', stype);
 			opt.get('type').dispatchEvent(event);
-			opt.set('server', serverPart[0]);
-			opt.set('server_port', port);
+			opt.set('server', m.hostname);
+			opt.set('server_port', m.port || "443");
 			opt.set('password', password);
 			opt.set('tls', true);
 			opt.set('tls_host', queryParam.peer || queryParam.sni || '');
 			opt.set('insecure', queryParam.allowinsecure == '1');
 			if (queryParam.ws) {
-				opt.set('trojan_ws', queryParam.ws == '1');
 			if (queryParam.ws == '1') {
+				opt.set('trojan_ws', true);
 				opt.set('ws_host', queryParam.wshost || '');
 				opt.set('ws_path', queryParam.wspath || '/');
 			}}
 			if (queryParam.ss) {
-				opt.set('ss_aead', queryParam.ss == '1');
 			if (queryParam.ss == '1') {
+				opt.set('ss_aead', true);
 				opt.set('ss_aead_method', queryParam.ssmethod.toUpperCase() || '');
 				opt.set('ss_aead_pwd', queryParam.sspasswd || '');
 			}}
 			if (queryParam.mux)
 				opt.set('mux', queryParam.mux == '1');
-			if (param != undefined) {
-				opt.set('alias', decodeURI(param));
+			if (m.hash) {
+				opt.set('alias', decodeURI(m.hash));
 			}
 		} else if (ssu[0] == "trojan-go") {
-			return false;
+			var m = parseUrl(ssrurl);
+			console.log(m.search);
+			var password = m.passwd;
+			if (password == "") {
+				s.innerHTML = "<font color='red'><%:Invalid Share Link Format.%></font>";
+				return false;
+			}
+			var queryParam = {};
+			if (m.search.length > 1) {
+				var query = m.search.split('?');
+				var queryParams = query[1];
+				var queryArray = queryParams.split('&');
+				for (i = 0; i < queryArray.length; i++) {
+					var params = queryArray[i].split('=');
+					queryParam[decodeURIComponent(params[0]).toLowerCase()] = decodeURIComponent(params[1] || '');
+				}
+			}
+			opt.set('type', 'trojan-go');
+			opt.get('type').dispatchEvent(event);
+			opt.set('server', m.hostname);
+			opt.set('server_port', m.port || "443");
+			opt.set('password', password);
+			opt.set('tls', true);
+			opt.set('tls_host', queryParam.peer || queryParam.sni || '');
+			opt.set('insecure', queryParam.allowinsecure == '1');
+			if (queryParam.type) {
+			if (queryParam.type == 'ws') {
+				opt.set('trojan_ws', true);
+				opt.set('ws_host', queryParam.host || '');
+				opt.set('ws_path', queryParam.path || '/');
+			}}
+			if (queryParam.encryption) {
+				var r = queryParam.encryption.match(/^(ss);([^;]*);(.*)$/),
+				enc = {type: r[1], method: r[2], password: r[3]};
+			if (enc) {
+			if (enc.type == 'ss') {
+				opt.set('ss_aead', true);
+				opt.set('ss_aead_method', enc.method.toUpperCase() || '');
+				opt.set('ss_aead_pwd', enc.password || '');
+			}}}
+			if (queryParam.mux)
+				opt.set('mux', queryParam.mux == '1');
+			if (m.hash) {
+				opt.set('alias', decodeURI(m.hash));
+			}
 		} else if (ssu[0] == "vmess") {
 			var sstr = b64DecodeUnicode(ssu[1]);
 			var ploc = sstr.indexOf("/?");
@@ -359,15 +419,15 @@
 				opt.set('tls_host', ssm.host);
 			}
 		} else {
-			s.innerHTML = "<font color='red'>尚不支持的格式</font>: " + ssu[0];
+			s.innerHTML = "<font color='red'><%:Invalid Share Link Format.%></font>: " + ssu[0];
 			return false;
 		}
-		s.innerHTML = "<font color='green'>完成配置导入，检查后保存</font>";
+		s.innerHTML = "<font color='green'><%:Import finished.%></font>";
 		return false;
 	}
 //]]></script>
 <input type="test" class="hidden" id="<%=self.option%>-dummy" value="-dummy-" />
-<input type="button" class="cbi-button cbi-button-apply" value="导入配置" onclick="return import_ssr_url(this, '<%=self.option%>', '<%=self.value%>')" />
-<input type="button" class="cbi-button cbi-button-apply" value="导出配置" onclick="return export_ssr_url(this, '<%=self.option%>', '<%=self.value%>')" />
+<input type="button" class="cbi-button cbi-button-apply" value='<%:Import Share Link%>' onclick="return import_ssr_url(this, '<%=self.option%>', '<%=self.value%>')" />
+<input type="button" class="cbi-button cbi-button-apply" value='<%:Export Share Link%>' onclick="return export_ssr_url(this, '<%=self.option%>', '<%=self.value%>')" />
 <span id="<%=self.option%>-status"></span>
 <%+cbi/valuefooter%>

@@ -350,29 +350,32 @@ msgstr "使用Pdnsd"
 msgid "Use Other DNS Tunnel(Need to install)"
 msgstr "使用其他DNS转发(需要自己安装)"
 
-msgid "Import SSR"
-msgstr "导入ssr配置信息"
+msgid "Fill From Shared"
+msgstr "节点分享导入"
 
-msgid "Export SSR"
-msgstr "导出ssr配置信息"
+msgid "Import Share Link"
+msgstr "导入配置信息"
 
-msgid "Import SSR successfully."
-msgstr "成功导入SSR。"
+msgid "Export Share Link"
+msgstr "导出配置信息"
 
-msgid "Invalid SSR format."
-msgstr "无效的SSR格式。"
+msgid "Import finished."
+msgstr "导入完成"
+
+msgid "Invalid Share Link Format."
+msgstr "无效的分享格式。"
 
 msgid "User cancelled."
 msgstr "用户已取消。"
 
-msgid "Paste ssr url here"
-msgstr "在此处粘贴ssr://网址"
+msgid "Paste Share Link Here"
+msgstr "在此处粘贴分享信息"
 
-msgid "Unable to copy SSR to clipboard."
-msgstr "无法复制SSR网址到剪贴板。"
+msgid "Unable share to clipboard."
+msgstr "无法分享网址到剪贴板。"
 
-msgid "Copy SSR to clipboard successfully."
-msgstr "成功复制SSR网址到剪贴板。"
+msgid "Share to clipboard successfully."
+msgstr "成功复制分享网址到剪贴板。"
 
 msgid "Servers Manage"
 msgstr "服务器管理"
@@ -393,7 +396,7 @@ msgid "GFW List"
 msgstr "GFW列表"
 
 msgid "ShadowSocksR Plus+ Settings"
-msgstr "ShadowSocksR Plus+ 设置（支持SS/SSR/V2RAY/TROJAN）"
+msgstr "ShadowSocksR Plus+ 设置"
 
 msgid "trojan"
 msgstr "特洛伊"
@@ -434,8 +437,8 @@ msgstr "订阅节点关键字过滤"
 msgid "Filter Words splited by /"
 msgstr "命中关键字的节点将被丢弃。多个关键字用 / 分隔"
 
-msgid "Subscribe URL(SS/SSR/V2RAY/TROJAN)"
-msgstr "SS/SSR/V2RAY/TROJAN订阅URL地址"
+msgid "Subscribe URL(SS/SSR/VMESS/TROJAN[-GO])"
+msgste "订阅地址(SS/SSR/VMESS/TROJAN[-GO])"
 
 msgid "Update"
 msgstr "更新"
