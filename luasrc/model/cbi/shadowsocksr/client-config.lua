@@ -130,10 +130,10 @@ s = m:section(NamedSection, sid, "servers")
 s.anonymous = true
 s.addremove   = false
 
-o = s:option(DummyValue,"ssr_url",translate("Fill From Shared"))
+o = s:option(DummyValue, "ssr_url", translate("Share Current"))
 o.rawhtml  = true
 o.template = "shadowsocksr/ssrurl"
-o.value =sid
+o.value = sid
 
 type = s:option(ListValue, "type", translate("Server Node Type"))
 if nixio.fs.access("/usr/sbin/trojan") then
@@ -259,6 +259,7 @@ o.rmempty = true
 o = s:option(Value, "ws_host", translate("WebSocket Host"))
 o:depends("transport", "ws")
 o:depends("trojan_ws", "1")
+o.datatype = "host"
 o.rmempty = true
 
 -- WS路径
