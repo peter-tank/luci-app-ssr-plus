@@ -279,7 +279,7 @@ local function processData(szType, content)
 			end
 			if params.ss and params.ss == "1" then
 				result.ss_aead = "1"
-				if params.ssmethod then result.ss_aead_method = params.ssmethod end
+				if params.ssmethod then result.ss_aead_method = string.lower(params.ssmethod) end
 				if params.sspasswd then result.ss_aead_pwd = params.sspasswd end
 			end
 			if result.mux or result.trojan_ws or result.ss_aead then
@@ -344,6 +344,7 @@ local function processData(szType, content)
 			if params.encryption and params.encryption:match('^ss;[^;]*;.*$') then
 				result.ss_aead = "1"
 				result.ss_aead_method, result.ss_aead_pwd = params.encryption:match('^ss;([^;]*);(.*)$')
+				result.ss_aead_method = string.lower(result.ss_aead_method)
 			end
 			result.server_port = port
 			result.tls = "1"

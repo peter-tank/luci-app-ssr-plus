@@ -380,10 +380,10 @@ msgid "Share to clipboard successfully, copy to batch mode still:"
 msgstr "成功复制分享网址到剪贴板和批量导入临时输入："
 
 msgid "Faltal on get option, please help in debug:"
-msgid "代码错误，请协助捉虫："
+msgstr "代码错误，请协助捉虫："
 
 msgid "Faltal on set option, please help in debug:"
-msgid "代码错误，请协助捉虫："
+msgstr "代码错误，请协助捉虫："
 
 msgid "Servers Manage"
 msgstr "服务器管理"
@@ -410,7 +410,7 @@ msgid "trojan"
 msgstr "特洛伊"
 
 msgid "logread"
-msgstr "ipt2socks接管"
+msgstr "主服务代理"
 
 msgid "Same as UDP Server"
 msgstr "与UDP中继服务器相同"

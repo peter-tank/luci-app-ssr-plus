@@ -109,13 +109,13 @@ local force_fp = {
 }
 
 local encrypt_methods_ss_aead = {
-	"DUMMY",
-	"AEAD_CHACHA20_POLY1305",
-	"AEAD_AES_128_GCM",
-	"AEAD_AES_256_GCM",
-	"CHACHA20-IETF-POLY1305",
-	"AES-128-GCM",
-	"AES-256-GCM",
+	"dummy",
+	"aead_chacha20_poly1305",
+	"aead_aes_128_gcm",
+	"aead_aes_256_gcm",
+	"chacha20-ietf-poly1305",
+	"aes-128-gcm",
+	"aes-256-gcm",
 }
 
 m = Map(shadowsocksr, translate("Edit ShadowSocksR Server"))
@@ -276,7 +276,7 @@ o.rmempty = false
 
 o = s:option(ListValue, "ss_aead_method", translate("Encrypt Method"))
 for _, v in ipairs(encrypt_methods_ss_aead) do o:value(v, v:upper()) end
-o.default = "AEAD_AES_128_GCM"
+o.default = "aead_aes_128_gcm"
 o.rmempty = false
 o:depends("ss_aead", "1")
 
