@@ -67,10 +67,10 @@ local v2ray = {
     -- 底层传输配置
         streamSettings = {
             network = server.transport,
-            security = (server.tls == '1') and "tls" or "none",
+            security = (server.stream_security == 'tls') and "tls" or "none",
             tlsSettings = {
-		serverName = (server.tls_host ~= nil) and server.tls_host or ((server.ws_host ~= nil) and server.ws_host or ""),
-		allowInsecure = (server.insecure == "1") and true or false,
+		serverName = server.tls_host or (server.ws_host or ""),
+		allowInsecure = server.insecure == "1",
 		disableSessionResumption = (server.session_ticket ~= "1") and true or false,
 		},
             kcpSettings = (server.transport == "kcp") and {

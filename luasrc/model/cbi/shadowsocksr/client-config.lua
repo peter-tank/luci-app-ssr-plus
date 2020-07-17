@@ -137,7 +137,7 @@ o.value = sid
 
 type = s:option(ListValue, "type", translate("Server Node Type"))
 if nixio.fs.access("/usr/sbin/trojan") then
-type:value("trojan", translate("Trojan"))
+type:value("trojan", translate("Trojan-Plus"))
 end
 if nixio.fs.access("/usr/sbin/trojan-go") then
 type:value("trojan-go", translate("Trojan-Go"))
@@ -219,6 +219,68 @@ for _, v in ipairs(securitys) do o:value(v, v:upper()) end
 o.rmempty = true
 o:depends("type", "v2ray")
 
+-- [[ TLS ]]--
+o = s:option(ListValue, "stream_security", translate("Transport Layer Encryption"))
+o:value("none", "none")
+o:value("tls", "tls")
+o.default = "tls"
+o:depends("type", "v2ray")
+o:depends("type", "trojan-go")
+o:depends("type", "trojan")
+o.validate = function(self, value)
+    if value == "none" and type:formvalue(sid) == "trojan" then
+        return nil, translate("'none' not supported for original Trojan.")
+    end
+    return value
+end
+
+o = s:option(Flag, "session_ticket", translate("Session Ticket"))
+o.default = "0"
+o:depends("stream_security", "tls")
+
+o = s:option(Value, "tls_host", translate("TLS Host"))
+o:depends("stream_security", "tls")
+
+-- [[ allowInsecure ]]--
+o = s:option(Flag, "insecure", translate("allowInsecure"))
+o:depends("stream_security", "tls")
+
+-- For Trojan-Go
+o = s:option(ListValue, "fingerprint", translate("Finger Print"))
+for _, v in ipairs(force_fp) do o:value(v) end
+o:depends({ type = "trojan-go", stream_security = "tls" })
+o.default = "firefox"
+
+o = s:option(ListValue, "trojan_transport", translate("Transport"))
+o:value("original", "Original")
+o:value("ws", "WebSocket")
+o:value("h2", "HTTP/2")
+o:value("h2+ws", "HTTP/2 & WebSocket")
+o.default = "ws"
+o:depends("type", "trojan-go")
+
+o = s:option(ListValue, "plugin_type", translate("Plugin Type"))
+o:value("plaintext", "Plain Text")
+o:value("shadowsocks", "ShadowSocks")
+o:value("other", "Other")
+o.default = "plaintext"
+o:depends({ stream_security = "none", trojan_transport = "original" })
+
+o = s:option(Value, "plugin_cmd", translate("Plugin Binary"))
+o.placeholder = "eg: /usr/bin/v2ray-plugin"
+o:depends({ plugin_type = "shadowsocks" })
+o:depends({ plugin_type = "other" })
+
+o = s:option(Value, "plugin_option", translate("Plugin Option"))
+o.placeholder = "eg: obfs=http;obfs-host=www.baidu.com"
+o:depends({ plugin_type = "shadowsocks" })
+o:depends({ plugin_type = "other" })
+
+o = s:option(DynamicList, "plugin_arg", translate("Plugin Option Args"))
+o.placeholder = "eg: [\"-config\", \"test.json\"]"
+o:depends({ plugin_type = "shadowsocks" })
+o:depends({ plugin_type = "other" })
+
 -- 传输协议
 o = s:option(ListValue, "transport", translate("Transport"))
 o:value("tcp", "TCP")
@@ -228,11 +290,6 @@ o:value("h2", "HTTP/2")
 o:value("quic", "QUIC")
 o.rmempty = true
 o:depends("type", "v2ray")
-
-o = s:option(Flag, "trojan_ws", translate("Trojan-Go WebSocket"))
-o.default = "0"
-o.rmempty = true
-o:depends("type", "trojan-go")
 
 -- [[ TCP部分 ]]--
 
@@ -258,43 +315,32 @@ o.rmempty = true
 -- WS域名
 o = s:option(Value, "ws_host", translate("WebSocket Host"))
 o:depends("transport", "ws")
-o:depends("trojan_ws", "1")
+o:depends("trojan_transport", "h2+ws")
+o:depends("trojan_transport", "ws")
 o.datatype = "host"
 o.rmempty = true
 
 -- WS路径
 o = s:option(Value, "ws_path", translate("WebSocket Path"))
 o:depends("transport", "ws")
-o:depends("trojan_ws", "1")
+o:depends("trojan_transport", "h2+ws")
+o:depends("trojan_transport", "ws")
 o.rmempty = true
-
--- For Trojan-Go only
-o = s:option(Flag, "ss_aead", translate("Shadowsocks2"))
-o:depends("type", "trojan-go")
-o.default = "0"
-o.rmempty = false
-
-o = s:option(ListValue, "ss_aead_method", translate("Encrypt Method"))
-for _, v in ipairs(encrypt_methods_ss_aead) do o:value(v, v:upper()) end
-o.default = "aead_aes_128_gcm"
-o.rmempty = false
-o:depends("ss_aead", "1")
-
-o = s:option(Value, "ss_aead_pwd", translate("Password"))
-o.password = true
-o.rmempty = true
-o:depends("ss_aead", "1")
 
 -- [[ H2部分 ]]--
 
 -- H2域名
 o = s:option(Value, "h2_host", translate("HTTP/2 Host"))
 o:depends("transport", "h2")
+o:depends("trojan_transport", "h2+ws")
+o:depends("trojan_transport", "h2")
 o.rmempty = true
 
 -- H2路径
 o = s:option(Value, "h2_path", translate("HTTP/2 Path"))
 o:depends("transport", "h2")
+o:depends("trojan_transport", "h2+ws")
+o:depends("trojan_transport", "h2")
 o.rmempty = true
 
 -- [[ QUIC部分 ]]--
@@ -372,37 +418,22 @@ o = s:option(Flag, "congestion", translate("Congestion"))
 o:depends("transport", "kcp")
 o.rmempty = true
 
--- [[ allowInsecure ]]--
-o = s:option(Flag, "insecure", translate("allowInsecure"))
-o.rmempty = false
-o:depends("type", "v2ray")
-o:depends("type", "trojan")
+-- For Trojan-Go only
+o = s:option(Flag, "ss_aead", translate("Shadowsocks2"))
 o:depends("type", "trojan-go")
-
-
--- [[ TLS ]]--
-o = s:option(Flag, "tls", translate("TLS"))
-o.rmempty = false
-o.default = "1"
-o:depends("type", "v2ray")
-o:depends("type", "trojan")
-o:depends("type", "trojan-go")
-
-o = s:option(Value, "tls_host", translate("TLS Host"))
-o:depends("tls", "1")
-o.rmempty = false
-
-o = s:option(Flag, "session_ticket", translate("Session Ticket"))
-o:depends("tls", "1")
-o.rmempty = false
 o.default = "0"
-
--- For Trojan-Go
-o = s:option(ListValue, "fingerprint", translate("Finger Print"))
-for _, v in ipairs(force_fp) do o:value(v) end
-o:depends("type", "trojan-go")
-o.default = "firefox"
 o.rmempty = false
+
+o = s:option(ListValue, "ss_aead_method", translate("Encrypt Method"))
+for _, v in ipairs(encrypt_methods_ss_aead) do o:value(v, v:upper()) end
+o.default = "aead_aes_128_gcm"
+o.rmempty = false
+o:depends("ss_aead", "1")
+
+o = s:option(Value, "ss_aead_pwd", translate("Password"))
+o.password = true
+o.rmempty = true
+o:depends("ss_aead", "1")
 
 -- [[ Mux ]]--
 o = s:option(Flag, "mux", translate("Mux"))

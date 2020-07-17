@@ -165,10 +165,10 @@ local function processData(szType, content)
 			result.security = info.security
 		end
 		if info.tls == "tls" or info.tls == "1" then
-			result.tls = "1"
+			result.stream_security = "tls"
 			result.tls_host = info.host
 		else
-			result.tls = "0"
+			result.stream_security = "none"
 		end
 	elseif szType == "ss" then
 		local alias = ""
@@ -272,7 +272,7 @@ local function processData(szType, content)
 			sni = params.sni and params.sni or ""
 			if params.mux and params.mux == "1" then result.mux = "1" end
 			if params.ws and params.ws == "1" then
-				result.trojan_ws = "1"
+				result.trojan_transport = "ws"
 				if params.wshost then result.ws_host = params.wshost end
 				if params.wspath then result.ws_path = params.wspath end
 				if sni == "" and params.wshost then sni = params.wshost end
@@ -282,12 +282,12 @@ local function processData(szType, content)
 				if params.ssmethod then result.ss_aead_method = string.lower(params.ssmethod) end
 				if params.sspasswd then result.ss_aead_pwd = params.sspasswd end
 			end
-			if result.mux or result.trojan_ws or result.ss_aead then
+			if result.mux or result.trojan_trojan_transport == "ws" or result.ss_aead then
 				result.type = "trojan-go"
 				result.fingerprint = "firefox"
 			end
 			result.server_port = port
-			result.tls = "1"
+			result.stream_security = "tls"
 			result.tls_host = peer or sni
 			result.insecure = allowInsercure and "1" or "0"
 		end
@@ -336,7 +336,7 @@ local function processData(szType, content)
 			sni = params.sni and params.sni or ""
 			if params.mux and params.mux == "1" then result.mux = "1" end
 			if params.type and params.type == "ws" then
-				result.trojan_ws = "1"
+				result.trojan_transport = "ws"
 				if params.host then result.ws_host = params.host end
 				if params.path then result.ws_path = params.path end
 				if sni == "" and params.host then sni = params.host end
@@ -347,7 +347,7 @@ local function processData(szType, content)
 				result.ss_aead_method = string.lower(result.ss_aead_method)
 			end
 			result.server_port = port
-			result.tls = "1"
+			result.stream_security = "tls"
 			result.tls_host = peer or sni
 			result.fingerprint = "firefox"
 			result.insecure = allowInsercure and "1" or "0"
