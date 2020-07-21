@@ -425,7 +425,7 @@ o.default = "0"
 o.rmempty = false
 
 o = s:option(ListValue, "ss_aead_method", translate("Encrypt Method"))
-for _, v in ipairs(encrypt_methods_ss_aead) do o:value(v, v:upper()) end
+for _, v in ipairs(encrypt_methods_ss_aead) do o:value(v, v) end
 o.default = "aead_aes_128_gcm"
 o.rmempty = false
 o:depends("ss_aead", "1")
