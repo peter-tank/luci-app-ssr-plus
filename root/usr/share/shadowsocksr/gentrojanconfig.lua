@@ -48,7 +48,7 @@ local trojan = {
         enabled = server.plugin_type ~= nil,
         type = server.plugin_type or "plaintext",
         command = server.plugin_type ~= "plaintext" and server.plugin_cmd or nil,
-        plugin_option = server.plugin_type ~= "plaintext" and server.plugin_option or nil,
+        option = server.plugin_type ~= "plaintext" and server.plugin_option or nil,
         arg = server.plugin_type ~= "plaintext" and server.plugin_arg or nil,
         env = {}
         } or nil,
