@@ -34,7 +34,6 @@ CRON_FILE=/etc/crontabs/root
 threads=1
 dns_port=5335
 fdns_port=5353
-dnscrypt_enable_flag=0
 
 uci_get_resolver_addrs() {
 local __PKGNAME="dnscrypt-proxy"
@@ -266,10 +265,6 @@ start_rules() {
 	return $?
 }
 
-start_dnscrypt() {
-    /etc/init.d/dnscrypt-proxy start
-}
-
 start_pdnsd() {
 	local usr_dns="$1"
 	local usr_port="$2"
@@ -317,8 +312,10 @@ server {
 	port = $usr_port;
 	timeout=6;
 	uptest=none;
+	proxy_only=on;
 	interval=10m;
 	purge_cache=off;
+	caching=on;
 }
 server {
 	label= "ssr-pdnsd";
@@ -328,6 +325,7 @@ server {
 	uptest=none;
 	interval=10m;
 	purge_cache=off;
+	caching=on;
 }
 EOF
 
@@ -430,14 +428,12 @@ EOF
         /sbin/logread -f "${logread_file}" &
     fi
 
-  if $dnscrypt ;then
     local dnsserver
     for dnsserver in $(uci_get_resolver_addrs); do
 	ipset add ss_spec_wan_ac $dnsserver nomatch 2>/dev/null  
     done
-    start_dnscrypt
-    dnscrypt_enable_flag=1
-  elif $pdnsd ;then
+
+  if $pdnsd ;then
     local dnsserver dnsport
     dnsserver=`echo "$dnsstr"|sed 's/^\(.*\):\([^:]*\)$/\1/'`
     dnsport=`echo "$dnsstr"|sed 's/^\(.*\):\([^:]*\)$/\2/'`
@@ -573,7 +569,7 @@ rules() {
 
 start() {
 	local GLOBAL_SERVER UDP_RELAY_SERVER stype kcp_server kcp_enable udp_server udp_local_port
-	local utype slocal_port slocal_addr dns_mode dnsstr dnscrypt pdnsd dnsforward threads
+	local utype slocal_port slocal_addr dns_mode dnsstr pdnsd dnsforward threads
 	if [ -z "$switch_server" ] ;then
 		GLOBAL_SERVER=$(uci_get_by_type global global_server)
 	else
@@ -590,8 +586,7 @@ start() {
 	[ "$UDP_RELAY_SERVER" = "same" ] && UDP_RELAY_SERVER=$GLOBAL_SERVER
 
 	if [ "${GLOBAL_SERVER}${UDP_RELAY_SERVER}" == "nilnil" ] ; then
-		kcp_enable=0; switch_enable=0
-		[ "${dns_mode}" == "dnscrypt" ] || dns_mode="disable"
+		kcp_enable=0; switch_enable=0; dns_mode="disable"
 	fi
 
 	if [ "$(uci_get_by_type global threads 0)" = "0" ] ;then
@@ -606,8 +601,7 @@ start() {
 	udp_local_port=$(uci_get_by_name $UDP_RELAY_SERVER local_port)
 
 	dnsstr=$(uci_get_by_type global tunnel_forward "8.8.4.4:53")
-	dnscrypt=false; pdnsd=false;
-	[ "$dns_mode" == "dnscrypt" ] && dnscrypt=true
+	pdnsd=false;
 	[ "$dns_mode" == "pdnsd" ] && pdnsd=true
 
 	slocal_port=$(uci_get_by_type socks5_proxy local_port 1080)
@@ -642,8 +636,9 @@ EOF
 	[ "$ENABLE_SERVER" = "nil" ] || start_server
 	
 	if [ $(uci_get_by_type global monitor_enable) = 1 ] ;then
-		let total_count=server_count+redir_tcp+redir_udp+tunnel_enable+kcp_enable_flag+local_enable+switch_enable+dnscrypt_enable_flag
-		[ $total_count -gt 0 ] && service_start /usr/bin/ssr-monitor $server_count $redir_tcp $redir_udp $tunnel_enable $kcp_enable_flag $local_enable $pdnsd_enable_flag $dnscrypt_enable_flag $switch_enable $stype
+		let total_count=server_count+redir_tcp+redir_udp+tunnel_enable+kcp_enable_flag+local_enable+switch_enable
+		[ $total_count -gt 0 ] && service_start /usr/bin/ssr-monitor $server_count $redir_tcp $redir_udp $tunnel_enable $kcp_enable_flag $local_enable $pdnsd_enable_flag $switch_enable $stype
+
 	fi
 
 	add_cron
@@ -668,7 +663,6 @@ stop() {
 		kill -9 $(busybox ps -w | grep ssr-monitor | grep -v grep | awk '{print $1}') >/dev/null 2>&1
 	fi
 	
-	/etc/init.d/dnscrypt-proxy stop
 	if [ -f "/tmp/dnsmasq.d/dnsmasq-ssr.conf" ]; then
 		rm -vrf /tmp/dnsmasq.ssr /tmp/dnsmasq.oversea /tmp/dnsmasq.d/dnsmasq-ssr.conf
 		/etc/init.d/dnsmasq restart >/dev/null 2>&1

@@ -27,7 +27,6 @@ tunnel_process=$4
 kcp_process=$5
 local_process=$6
 pdnsd_process=$7
-dnscrypt_process=$8
 
 i=0
 
@@ -115,15 +114,6 @@ do
       exit 0
       fi   
       fi
-#dnscrypt-proxy
-	if [ $dnscrypt_process -gt 0 ] ;then
-	icount=`busybox ps -w  | grep dnscrypt-proxy |grep -v grep| wc -l`
-	if [ $icount -lt $dnscrypt_process ]  #如果进程挂掉就重启它
-	then
-	logger -t "$NAME" "dnscrypt error.restart!"
-	/etc/init.d/dnscrypt-proxy running || /etc/init.d/dnscrypt-proxy reload
-	fi   
-	fi   
 #pdnsd
 		if [ $pdnsd_process -gt 0 ] ;then
 		icount=`busybox ps -w  | grep pdnsd |grep -v grep| wc -l`
