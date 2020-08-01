@@ -8,6 +8,10 @@ function index()
 		return
 	end
 
+local function is_finded(e)
+    return luci.sys.exec('type -t -p "%s/%s" "%s"' % {/usr/bin/v2ray, e, e}) ~= "" and true or false
+end
+
   entry({"admin", "services", "shadowsocksr"},alias("admin", "services", "shadowsocksr", "client"),_("ShadowSocksR Plus+"), 10).acl_depends = { "luci-app-ssr-plus" }
 
   entry({"admin", "services", "shadowsocksr", "client"},cbi("shadowsocksr/client"),_("SSR Client"), 10).leaf = true
@@ -20,7 +24,7 @@ function index()
 	
 	entry({"admin", "services", "shadowsocksr", "advanced"},cbi("shadowsocksr/advanced"),_("Advanced Settings"), 50).leaf = true
 	
-	if nixio.fs.access("/usr/bin/ssr-server") then
+	if is_finded("ssr-server") then
 	    entry({"admin", "services", "shadowsocksr", "server"},arcombine(cbi("shadowsocksr/server"), cbi("shadowsocksr/server-config")),_("SSR Server"), 60).leaf = true
 	
 	end
@@ -84,7 +88,7 @@ local set =luci.http.formvalue("set")
 local icount =0
 
 if set == "gfw_data" then
- if nixio.fs.access("/usr/bin/wget-ssl") then
+ if is_finded("/usr/bin/wget-ssl") then
   refresh_cmd="wget-ssl --no-check-certificate https://raw.githubusercontent.com/gfwlist/gfwlist/master/gfwlist.txt -O /tmp/gfw.b64"
  else
   refresh_cmd="wget -O /tmp/gfw.b64 http://iytc.net/tools/list.b64"
@@ -129,7 +133,7 @@ elseif set == "ip_data" then
  luci.sys.exec("rm -f /tmp/china_ssr.txt ")
 elseif set == "ads_data" then
   local need_process = 0
-  if nixio.fs.access("/usr/bin/wget-ssl") then
+  if is_finded("/usr/bin/wget-ssl") then
   refresh_cmd="wget-ssl --no-check-certificate -O - https://easylist-downloads.adblockplus.org/easylistchina+easylist.txt > /tmp/adnew.conf"
   need_process = 1
  else

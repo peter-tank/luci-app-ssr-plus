@@ -135,37 +135,16 @@ s=printstat(procs, m, "DNS Forward")
 s=printstat(procs, m, "Socks5 Proxy")
 s=printstat(procs, m, "Global SSR Server")
 
-local kcptun_version=translate("Unknown")
-local kcp_file="/usr/bin/kcptun-client"
-if not fs.access(kcp_file)  then
- kcptun_version=translate("Not exist")
-else
- if not fs.access(kcp_file, "rwx", "rx", "rx") then
-   fs.chmod(kcp_file, 755)
- end
- kcptun_version=sys.exec(kcp_file .. " -v | awk '{printf $3}'")
- if not kcptun_version or kcptun_version == "" then
-     kcptun_version = translate("Unknown")
- end
-        
-end
-
 if luci.sys.call("pidof kcptun-client >/dev/null") == 0 then
 kcptun_run=1
-end	
+end
 
-if nixio.fs.access("/usr/bin/kcptun-client") then
-s=m:field(DummyValue,"kcp_version",translate("KcpTun Version")) 
-s.rawhtml  = true
-s.value =kcptun_version
-
-s=m:field(DummyValue,"kcptun_run",translate("KcpTun")) 
+s=m:field(DummyValue,"kcptun_run",translate("KcpTun"))
 s.rawhtml  = true
 if kcptun_run == 1 then
 s.value =font_blue .. bold_on .. translate("Running") .. bold_off .. font_off
 else
 s.value = translate("Not Running")
-end
 end
 
 s=m:field(DummyValue,"google",translate("Google Connectivity"))

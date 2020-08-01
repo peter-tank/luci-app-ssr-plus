@@ -12,6 +12,10 @@ end)
 local fs  = require "nixio.fs"
 local sys = require "luci.sys"
 
+local function is_finded(e)
+    return luci.sys.exec('type -t -p "%s/%s" "%s"' % {/usr/bin/v2ray, e, e}) ~= "" and true or false
+end
+
 m = Map(shadowsocksr,  translate("Servers subscription and manage"))
 
 -- Server Subscribe
@@ -69,7 +73,7 @@ function o.cfgvalue(...)
 	return Value.cfgvalue(...) or "?"
 end
 
-if nixio.fs.access("/usr/bin/kcptun-client") then
+if is_finded("kcptun-client") then
 
 o = s:option(DummyValue, "kcp_enable", translate("KcpTun"))
 function o.cfgvalue(...)

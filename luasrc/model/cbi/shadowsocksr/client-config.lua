@@ -9,15 +9,9 @@ local sys = require "luci.sys"
 local sid = arg[1]
 local uuid = luci.sys.exec("cat /proc/sys/kernel/random/uuid")
 
-local function isKcptun(file)
-    if not fs.access(file, "rwx", "rx", "rx") then
-        fs.chmod(file, 755)
-    end
-
-    local str = sys.exec(file .. " -v | awk '{printf $1}'")
-    return (str:lower() == "kcptun")
+local function is_finded(e)
+    return luci.sys.exec('type -t -p "%s/%s" "%s"' % {/usr/bin/v2ray, e, e}) ~= "" and true or false
 end
-
 
 local server_table = {}
 local encrypt_methods = {
@@ -136,17 +130,17 @@ o.template = "shadowsocksr/ssrurl"
 o.value = sid
 
 type = s:option(ListValue, "type", translate("Server Node Type"))
-if nixio.fs.access("/usr/sbin/trojan") then
+if is_finded("trojan") then
 type:value("trojan", translate("Trojan-Plus"))
 end
-if nixio.fs.access("/usr/sbin/trojan-go") then
+if is_finded("trojan-go") then
 type:value("trojan-go", translate("Trojan-Go"))
 end
-if nixio.fs.access("/usr/bin/v2ray/v2ray") then
+if is_finded("v2ray") then
 type:value("v2ray", translate("V2Ray"))
 end
 type:value("ssr", translate("ShadowsocksR"))
-if nixio.fs.access("/usr/bin/ss-redir") then
+if is_finded("ss-redir") then
 type:value("ss", translate("Shadowsocks"))
 end
 type.description = translate("Using incorrect encryption mothod may causes service fail to start")
@@ -465,9 +459,9 @@ o.datatype = "port"
 o.default = 1234
 o.rmempty = false
 
-if nixio.fs.access("/usr/bin/kcptun-client") then
+if is_finded("kcptun-client") then
 
-kcp_enable = s:option(Flag, "kcp_enable", translate("KcpTun Enable"), translate("bin:/usr/bin/kcptun-client"))
+kcp_enable = s:option(Flag, "kcp_enable", translate("KcpTun Enable"))
 kcp_enable.rmempty = true
 kcp_enable.default = "0"
 kcp_enable:depends("type", "ssr")
@@ -476,19 +470,6 @@ kcp_enable:depends("type", "ss")
 o = s:option(Value, "kcp_port", translate("KcpTun Port"))
 o.datatype = "port"
 o.default = 4000
-function o.validate(self, value, section)
-    local kcp_file="/usr/bin/kcptun-client"
-    local enable = kcp_enable:formvalue(section) or kcp_enable.disabled
-    if enable == kcp_enable.enabled then
-    if not fs.access(kcp_file)  then
-        return nil, translate("Haven't a Kcptun executable file")
-    elseif  not isKcptun(kcp_file) then
-        return nil, translate("Not a Kcptun executable file")    
-    end
-    end
-
-    return value
-end
 o:depends("type", "ssr")
 o:depends("type", "ss")
 
