@@ -9,22 +9,23 @@
 
 
 NAME=shadowsocksr
-TMP_PATH="/var/etc/${NAME}/bin"
+TMP_PATH=/var/etc/${NAME}
+TMP_BIN_PATH="/var/etc/${NAME}/bin"
 
 uci_get_by_name() {
-	local ret=$(uci get $NAME.$1.$2 2>/dev/null)
-	echo ${ret:=$3}
+	local ret=$(uci get "${NAME}.${1}.${2}" 2>/dev/null)
+	echo "${ret:=$3}"
 }
 
 uci_get_by_type() {
-	local ret=$(uci get $NAME.@$1[0].$2 2>/dev/null)
-	echo ${ret:=$3}
+	local ret=$(uci get "${NAME}.@${1}[0].${2}" 2>/dev/null)
+	echo "${ret:=$3}"
 }
 
 count_running() {
 	filter=${1}
 	ssr_bin=${2}
-	busybox ps -w  | grep "${ssr_bin:+${TMP_PATH}/}${1}" |grep -v grep| wc -l
+	busybox ps -w  | grep "${ssr_bin:+${TMP_BIN_PATH}/}${1}" |grep -v grep| wc -l
 }
 server_process_count=$1
 redir_tcp_process=$2
@@ -90,7 +91,7 @@ do
       killall -q -9 ssr-server 
       for i in $(seq $server_process_count)
       do
-       /var/etc/shadowsocksr/bin/ssr-server -c /var/etc/shadowsocksr/shadowsocksr_$i.json -u -f /var/run/ssr-server$i.pid   
+       ${TMP_BIN_PATH}/ssr-server -c ${TMP_PATH}/shadowsocksr_$i.json -u -f /var/run/ssr-server$i.pid   
       done  
       fi   
       fi
@@ -101,7 +102,7 @@ do
       then
       logger -t "$NAME" "ssr kcptun error.restart!"
       killall -q -9 kcptun-client
-      /var/etc/shadowsocksr/bin/kcptun-client -r $server:$kcp_port -l :$server_port  $password $kcp_param &
+      ${TMP_BIN_PATH}/kcptun-client -r $server:$kcp_port -l :$server_port  $password $kcp_param &
       fi   
       fi
 #local

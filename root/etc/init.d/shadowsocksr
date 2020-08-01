@@ -16,7 +16,7 @@ NAME=shadowsocksr
 EXTRA_COMMANDS=rules
 LOG_FILE=/tmp/ssrplus.log
 TMP_PATH=/var/etc/${NAME}
-TMP_BIN_PATH=$TMP_PATH/bin
+TMP_BIN_PATH=${TMP_PATH}/bin
 CONFIG__FILE=${TMP_PATH}/${NAME}.json
 CONFIG_UDP_FILE=${TMP_PATH}/${NAME}_u.json
 CONFIG_SOCK5_FILE=${TMP_PATH}/${NAME}_s.json
@@ -41,13 +41,13 @@ fdns_port=5353
 [ -d "/var/run" ] || mkdir -p /var/run
 
 uci_get_by_name() {
-	local ret=$(uci get $NAME.$1.$2 2>/dev/null)
-	echo ${ret:=$3}
+	local ret=$(uci get "${NAME}.${1}.${2}" 2>/dev/null)
+	echo "${ret:=$3}"
 }
 
 uci_get_by_type() {
-	local ret=$(uci get $NAME.@$1[0].$2 2>/dev/null)
-	echo ${ret:=$3}
+	local ret=$(uci get "${NAME}.@${1}[0].${2}" 2>/dev/null)
+	echo "${ret:=$3}"
 }
 
 run_mode=$(uci_get_by_type global run_mode)
@@ -59,7 +59,7 @@ echolog() {
 
 first_type() {
 	local path_name=${1}
-	type -t -p "/bin/${path_name}" -p "${TMP_BIN_PATH}/${path_name}" -p "${path_name}" $@ | head -n1
+	type -t -p "/bin/${path_name}" -p "${TMP_BIN_PATH}/${path_name}" -p "${path_name}" -p "/usr/bin/v2ray/${path_name}" $@ | head -n1
 }
 
 ln_start_bin() {
@@ -399,12 +399,11 @@ start_redir() {
 	echolog "Proies starts..."
 	#deal kcp
 	if [ "$kcp_enable" == "1" ]; then
-		[ -f "/usr/bin/kcptun-client" ] || return 1
 		local kcp_port=$(uci_get_by_name $GLOBAL_SERVER kcp_port)
 		local server_port=$(uci_get_by_name $GLOBAL_SERVER server_port)
 		local password=$(uci_get_by_name $GLOBAL_SERVER kcp_password)
 		local kcp_param=$(uci_get_by_name $GLOBAL_SERVER kcp_param)
-		service_start /usr/bin/kcptun-client \
+		ln_start_bin "$(first_type kcptun-client)" kcptun-client \
 			-r ${global_server}:${kcp_port} \
 			-l ":${server_port}" ${password:+--key ${password}} "${kcp_param}"
 		echolog "  [$?] kcptun-client: KCP [:${server_port}] -> ${global_server}:${kcp_port}"
@@ -425,7 +424,7 @@ start_redir() {
 		done
 		msg="TCP threads: ${threads} ${ARG_OTA:+=(OTA)}"
 	elif [ "$stype" == "v2ray" ] || [ "$stype" == "trojan-go" ]; then
-		ln_start_bin "$(first_type /usr/sbin/v2ray/${stype} /usr/bin/v2ray/${stype} ${stype})" ${stype} -config "$config_file"
+		ln_start_bin "$(first_type ${stype})" ${stype} -config "$config_file"
 		[ "$stype" == "trojan-go" ] && msg="TCP/UDP threads: 1" || msg="TCP threads: 1"
 	elif [ "$stype" == "trojan" ]; then
 		for i in $(seq 1 $threads); do
@@ -450,14 +449,14 @@ start_redir() {
 		done
 		msg="UDP threads: $threads ${ARG_OTA:+=(OTA)}"
 	elif [ "$utype" == "v2ray" ]; then
-		ln_start_bin "$(first_type /usr/sbin/v2ray/${utype} /usr/bin/v2ray/${utype} ${utype})" ${utype} -config "$config_file"
+		ln_start_bin "$(first_type ${utype})" ${utype} -config "$config_file"
 		msg="UDP threads: 1"
 	elif [ "$utype" == "trojan" ] || [ "$utype" == "trojan-go" ]; then
 		# UDP Relay skiped for trojan[-go]
 		cat <<-EOF >$config_file
 			skiped
 		EOF
-		ln_start_bin "/sbin/logread" logread -f "${config_file}"
+		ln_start_bin "$(first_type logread)" logread -f "${config_file}"
 		msg="UDP managed by the main node, no new threads needed"
 	fi
 	[ -n "$msg" ] && redir_udp=1
@@ -609,7 +608,7 @@ start_sock5() {
 			-f /var/run/ssr-local.pid
 		msg="on ${slocal_addr}:${slocal_port}"
 	elif [ "$ltype" == "v2ray" ] || [ "$ltype" == "trojan-go" ]; then
-		ln_start_bin "$(first_type /usr/sbin/v2ray/${ltype} /usr/bin/v2ray/${ltype} ${ltype})" ${ltype} -config "$config_file"
+		ln_start_bin "$(first_type ${ltype} ${ltype})" ${ltype} -config "$config_file"
 		msg="on ${slocal_addr}:${slocal_port}"
 	elif [ "$ltype" == "trojan" ]; then
 		ln_start_bin "$(first_type ${ltype})" ${ltype} --config "$config_file"

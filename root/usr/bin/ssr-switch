@@ -26,13 +26,13 @@ echolog() {
 }
 
 uci_get_by_name() {
-	local ret=$(uci get $NAME.$1.$2 2>/dev/null)
-	echo ${ret:=$3}
+	local ret=$(uci get "${NAME}.${1}.${2}" 2>/dev/null)
+	echo "${ret:=$3}"
 }
 
 uci_get_by_type() {
-	local ret=$(uci get $NAME.@$1[0].$2 2>/dev/null)
-	echo ${ret:=$3}
+	local ret=$(uci get "${NAME}.@${1}[0].${2}" 2>/dev/null)
+	echo "${ret:=$3}"
 }
 
 DEFAULT_SERVER=$(uci_get_by_type global global_server)
