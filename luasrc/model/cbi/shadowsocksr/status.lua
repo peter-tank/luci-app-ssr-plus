@@ -27,22 +27,6 @@ local fs = require "nixio.fs"
 local sys = require "luci.sys"
 local uci = luci.model.uci.cursor()
 
-local kcptun_version=translate("Unknown")
-local kcp_file="/usr/bin/kcptun-client"
-if not fs.access(kcp_file)  then
- kcptun_version=translate("Not exist")
-else
- if not fs.access(kcp_file, "rwx", "rx", "rx") then
-   fs.chmod(kcp_file, 755)
- end
- kcptun_version=sys.exec(kcp_file .. " -v | awk '{printf $3}'")
- if not kcptun_version or kcptun_version == "" then
-     kcptun_version = translate("Unknown")
- end
-        
-end
-
-
 if gfwmode==1 then 
  gfw_count = tonumber(sys.exec("cat /etc/dnsmasq.ssr/gfw_list.conf | wc -l"))/2
  if nixio.fs.access("/etc/dnsmasq.ssr/ad.conf") then
@@ -109,20 +93,19 @@ end
 
 function printstat(status, form, name)
 	local tabs = {
-		["Global Client"] = "shadowsocksr.json",
-		["Game Mode UDP Relay"] = "shadowsocksr_u.json",
-		["PDNSD"] = "pdnsd.conf",
+		["TCP Proxy Node"] = "shadowsocksr.json",
+		["UDP Proxy Node"] = "shadowsocksr_u.json",
+		["PDNSD"] = "pdnsd_ssr.conf",
 		["DNS Forward"] = "shadowsocksr_d.json",
-		["SOCKS5 Proxy"] = "shadowsocksr_s.json",
+		["Socks5 Proxy"] = "shadowsocksr_s.json",
 		["Global SSR Server"] = "shadowsocksr_0.json",
-		["DNSCrypt Proxy"] = "dnscrypt-proxy-ns1.conf",
 	}
 	local stat = translate("Unknown")
 	local sname = stat
 	if tabs[name] and status then
 	stat = translate("Not Running")
 	for idx, cfg in pairs(status) do
-		if status[idx]['CONFIG'] and status[idx]['CONFIG'] == tabs[name] then
+		if status[idx]['CONFIG'] and status[idx]['CONFIG']:find(tabs[name]) then
 			stat = font_blue .. bold_on .. translate("Running") .. bold_off .. " > " .. status[idx]['COMMAND'] .. " -c " .. status[idx]['CONFIG'] .. font_off
 			sname = translate(status[idx]['COMMAND'])
 			break
@@ -137,22 +120,6 @@ end
 
 procs=processlist()
 
-if luci.sys.call("pidof kcptun-client >/dev/null") == 0 then
-kcptun_run=1
-end	
-
-if luci.sys.call("pidof ssr-server >/dev/null") == 0 then
-server_run=1
-end	
-
-if luci.sys.call("busybox ps -w | grep ssr-tunnel |grep -v grep >/dev/null") == 0 then
-tunnel_run=1
-end	
-
-if luci.sys.call("pidof pdnsd >/dev/null") == 0 then                 
-pdnsd_run=1     
-end	
-
 m = SimpleForm("Version")
 m.reset = false
 m.submit = false
@@ -161,13 +128,31 @@ m.submit = false
 -- s.rawhtml  = true
 -- s.value = printstat("Global Client", procs)
 
-s=printstat(procs, m, "Global Client")
-s=printstat(procs, m, "Game Mode UDP Relay")
+s=printstat(procs, m, "TCP Proxy Node")
+s=printstat(procs, m, "UDP Proxy Node")
 s=printstat(procs, m, "PDNSD")
 s=printstat(procs, m, "DNS Forward")
-s=printstat(procs, m, "DNSCrypt Proxy")
-s=printstat(procs, m, "SOCKS5 Proxy")
+s=printstat(procs, m, "Socks5 Proxy")
 s=printstat(procs, m, "Global SSR Server")
+
+local kcptun_version=translate("Unknown")
+local kcp_file="/usr/bin/kcptun-client"
+if not fs.access(kcp_file)  then
+ kcptun_version=translate("Not exist")
+else
+ if not fs.access(kcp_file, "rwx", "rx", "rx") then
+   fs.chmod(kcp_file, 755)
+ end
+ kcptun_version=sys.exec(kcp_file .. " -v | awk '{printf $3}'")
+ if not kcptun_version or kcptun_version == "" then
+     kcptun_version = translate("Unknown")
+ end
+        
+end
+
+if luci.sys.call("pidof kcptun-client >/dev/null") == 0 then
+kcptun_run=1
+end	
 
 if nixio.fs.access("/usr/bin/kcptun-client") then
 s=m:field(DummyValue,"kcp_version",translate("KcpTun Version")) 
@@ -231,10 +216,10 @@ t:option(DummyValue, "%CPU", translate("CPU"))
 t:option(DummyValue, "%MEM", translate("MEM"))
 -- t:option(DummyValue, "CONFIG", translate("CFG"))
 
--- term = t:option(Button, "_term", translate("Terminate"))
--- term.inputstyle = "remove"
--- function term.write(self, section)
---	null, self.tag_error[section] = luci.sys.process.signal(section, 15)
--- end
+term = t:option(Button, "_term", translate("Terminate"))
+term.inputstyle = "remove"
+function term.write(self, section)
+null, self.tag_error[section] = luci.sys.process.signal(section, 15)
+end
 
 return m

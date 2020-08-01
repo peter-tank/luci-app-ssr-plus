@@ -122,8 +122,8 @@ EOF
 	$IPT -I SS_SPEC_WAN_AC -m set --match-set blacklist dst -j SS_SPEC_WAN_FW
 	$IPT -I SS_SPEC_WAN_AC -m set --match-set whitelist dst -j RETURN
 
-#	for ip in $WAN_BP_IP; do ipset -! add whitelist $ip; done
-#	for ip in $WAN_FW_IP; do ipset -! add blacklist $ip; done
+	for ip in $WAN_BP_IP; do ipset -! add whitelist $ip; done
+	for ip in $WAN_FW_IP; do ipset -! add blacklist $ip; done
 
 	return $?
 }

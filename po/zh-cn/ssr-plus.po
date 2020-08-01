@@ -19,20 +19,23 @@ msgstr "ShadowSocksR 客户端运行中"
 msgid "ShadowSocksR is not running"
 msgstr "ShadowSocksR 客户端未运行"
 
-msgid "Global Setting"
-msgstr "全局设置"
+msgid "Main"
+msgstr "主配置"
 
-msgid "Global Server"
-msgstr "全局服务器"
+msgid "DNS"
+msgstr "DNS配置"
+
+msgid "TCP Proxy Node"
+msgstr "用于透明代理的节点"
 
 msgid "ShadowSocksR SOCK5 Proxy is running"
 msgstr "ShadowSocksR SOCK5代理运行中"
 
-msgid "UDP Relay Server"
-msgstr "UDP中继服务器"
+msgid "UDP Proxy Node"
+msgstr "用于Socks和DNS转发的节点"
 
 msgid "Same as Global Server"
-msgstr "与全局服务器相同"
+msgstr "用于透明代理的节点"
 
 msgid "Servers Setting"
 msgstr "服务器配置"
@@ -172,11 +175,11 @@ msgstr "编辑服务器配置"
 msgid "Alias"
 msgstr "别名"
 
-msgid "SOCKS5 Proxy"
-msgstr "SOCKS5代理"
+msgid "Socks5 Proxy"
+msgstr "Socks5服务"
 
-msgid "Server"
-msgstr "服务器"
+msgid "Select Node"
+msgstr "使用节点"
 
 msgid "TCP Fast Open"
 msgstr "TCP快速打开"
@@ -249,9 +252,6 @@ msgstr "不走代理"
 
 msgid "Forwarded Proxy"
 msgstr "强制走代理"
-
-msgid "UDP Relay"
-msgstr "UDP中继"
 
 msgid "Google Connectivity"
 msgstr "【谷歌】连通性检查"
@@ -337,17 +337,26 @@ msgstr "【广告屏蔽】数据库"
 msgid "DNS Server IP and Port"
 msgstr "DNS服务器地址和端口"
 
-msgid "Resolve Dns Mode"
-msgstr "DNS解析方式"
+msgid "DNS Hijack"
+msgstr "DNS劫持"
 
 msgid "Use SSR DNS Tunnel"
 msgstr "使用SSR-DNS隧道"
 
-msgid "Use Pdnsd"
-msgstr "使用Pdnsd"
+msgid "Pdnsd"
+msgstr "Pdnsd"
 
-msgid "Use Other DNS Tunnel(Need to install)"
-msgstr "使用其他DNS转发(需要自己安装)"
+msgid "Pdnsd+Node"
+msgstr "Pdnsd+节点"
+
+msgid "Local 5335"
+msgstr "本机 TCP/5335"
+
+msgid "Pdnsd: listening on local 5335, perform TCP DNS query only.<br />Pdnsd+Node: DNS requests encrypt and routed by 'UDP Proxy Node' then forward to"
+msgstr "Pdnsd：监听端口 5335，只支持发送 TCP DNS 请求。<br />Pdnsd+节点：通过 'Forward' 模式，经由 '用于Socks和DNS转发的节点'，转发DNS请求到"
+
+msgid "DNS Forward works with type of V2Ray & Trojan UDP proxy nodes only, and listening to local port 5353, local addresses fallback to '8.8.4.4:53' when at 'Pdnsd+Node' mode and only the first valid is used."
+msgstr "'Forward' 模式仅工作于 V2Ray 和 Trojan 类型的节点，并且需要监听本机 5353 端口，在 'Pdnsd+节点' 模式下时，填写的本地地址会自动以 '8.8.4.3:53' 代替，并且只有首个地址有效。"
 
 msgid "Share Current"
 msgstr "所见即所得"
@@ -410,10 +419,10 @@ msgid "trojan"
 msgstr "特洛伊"
 
 msgid "logread"
-msgstr "主服务代理"
+msgstr "主进程接管"
 
 msgid "Same as UDP Server"
-msgstr "与UDP中继服务器相同"
+msgstr "用于Socks和DNS转发的节点"
 
 msgid "v2ray"
 msgstr "V2Ray接管"
@@ -421,24 +430,24 @@ msgstr "V2Ray接管"
 msgid "Running Details:"
 msgstr "进程详情："
 
-msgid "Main Server"
-msgstr "主服务器"
-
 msgid "Anti-pollution DNS Server"
 msgstr "访问国外域名DNS服务器"
 
-msgid "Use Pdnsd tcp query and cache"
-msgstr "使用PDNSD TCP查询并缓存"
+msgid "Fallback DNS"
+msgstr "备用DNS服务器"
 
-msgid "DNS Server IP:Port"
-msgstr "DNS服务器 IP:Port"
+msgid "Should support TCP query when at 'Pdnsd' mode."
+msgstr "'Pdnsd' 模式时，需要填写支持 TCP 进行查询的服务器"
+
+msgid "Fallback DNS Port"
+msgstr "备用DNS服务器端口"
 
 msgid "Update time (every day)"
 msgstr "更新时间 (每天)"
 
 msgid "Auto Update Server subscription, GFW list and CHN route"
-
 msgstr "自动更新服务器订阅、GFW列表和 CHN路由表"
+
 msgid "Subscribe Filter Words"
 msgstr "订阅节点关键字过滤"
 
@@ -502,12 +511,6 @@ msgstr "通过路由器自身代理更新订阅"
 msgid "LAN IP AC"
 msgstr "LAN IP访问控制"
 
-msgid "Game Mode UDP Server"
-msgstr "游戏模式UDP中继服务器"
-
-msgid "Game Mode UDP Relay"
-msgstr "游戏模式UDP中继"
-
 msgid "Server failsafe auto swith settings"
 msgstr "服务器节点故障自动切换设置"
 
@@ -516,9 +519,6 @@ msgstr "删除所有服务器节点"
 
 msgid "Severs Nodes"
 msgstr "服务器节点"
-
-msgid "Use Local DNS Service listen port 5335"
-msgstr "使用本机端口为5335的DNS服务"
 
 msgid "Server Node Type"
 msgstr "服务器节点类型"
@@ -541,12 +541,6 @@ msgstr "单线程"
 msgid "2 Threads"
 msgstr "2 线程"
 
-msgid "4 Threads"
-msgstr "4 线程"
-
-msgid "8 Threads"
-msgstr "8 线程"
-
 msgid "Proxy Ports"
 msgstr "需要代理的端口"
 
@@ -554,7 +548,7 @@ msgid "All Ports"
 msgstr "所有端口（默认）"
 
 msgid "Only Common Ports"
-msgstr "仅常用端口（不走P2P流量到代理）"
+msgstr "仅常用端口"
 
 msgid "Ping Latency"
 msgstr "Ping延迟"
@@ -576,15 +570,6 @@ msgstr "订阅服务器节点前，请先更新订阅URL列表"
 
 msgid "Update All Subscribe Severs"
 msgstr "更新所有订阅服务器节点"
-
-msgid "Use DNSCrypt Proxy listen port 5335"		
-msgstr "使用DNSCrypt代理"		
-
-msgid "DNS Forward with UDP Relay (127.0.0.1:5353)"		
-msgstr "DNS由UDP中继转发(127.0.0.1:5353)"		
-
-msgid "DNS Forward works with V2Ray & Trojan UDP relay only, else fallback to 8.8.4.4."		
-msgstr "其中的DNS转发选项仅在UDP中继设置为V2Ray或Trojan时有效，否则等同8.8.4.4。"
 
 msgid "Choose a file from the list to read."
 msgstr "请从列表选择文件来查看。"

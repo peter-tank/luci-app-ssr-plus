@@ -10,15 +10,18 @@
 
 START=90
 STOP=15
-
 SERVICE_DAEMONIZE=1
+
 NAME=shadowsocksr
 EXTRA_COMMANDS=rules
-CONFIG_FILE=/var/etc/${NAME}.json
-CONFIG_UDP_FILE=/var/etc/${NAME}_u.json
-CONFIG_SOCK5_FILE=/var/etc/${NAME}_s.json
-CONFIG_DNS_FILE=/var/etc/${NAME}_d.json
-CONFIG_DNSCRYPT_FILE=/var/etc/dnscrypt-proxy-ns1.conf
+LOG_FILE=/tmp/ssrplus.log
+TMP_PATH=/var/etc/${NAME}
+TMP_BIN_PATH=$TMP_PATH/bin
+CONFIG__FILE=${TMP_PATH}/${NAME}.json
+CONFIG_UDP_FILE=${TMP_PATH}/${NAME}_u.json
+CONFIG_SOCK5_FILE=${TMP_PATH}/${NAME}_s.json
+CONFIG_DNS_FILE=${TMP_PATH}/${NAME}_d.json
+CONFIG_PDNSD_FILE=${TMP_PATH}/pdnsd_ssr.conf
 server_count=0
 redir_tcp=0
 redir_udp=0
@@ -35,32 +38,7 @@ threads=1
 dns_port=5335
 fdns_port=5353
 
-uci_get_resolver_addrs() {
-local __PKGNAME="dnscrypt-proxy"
-local __SECTIONTYPE="server_addr"
-local ret
-
-	get_resolver_addrs()
-	{
-		local __TYPE="$1"
-		local __OPTION="$2"
-		set | sed -ne "s/^CONFIG_.*_addrs='\([^']*\)'$/\1/p" | sed -e "s/[, ]/\n/g" | sort | uniq
-	}
-
-config_load "${__PKGNAME}"
-ret=$(get_resolver_addrs "${__SECTIONTYPE}" "addrs")
-[ -z "${ret}" ] && {
-	CONFIG_APPEND=1
-	config_list_foreach "ns1" "resolvers" config_load
-	ret=$(get_resolver_addrs ".*" "addrs")
-}
-echo "${ret}"
-}
-
-uci_get_dnscrypt_byname() {
-	local ret=$(uci get dnscrypt-proxy.$1.$2 2>/dev/null)
-	echo ${ret:=$3}
-}
+[ -d "/var/run" ] || mkdir -p /var/run
 
 uci_get_by_name() {
 	local ret=$(uci get $NAME.$1.$2 2>/dev/null)
@@ -73,8 +51,96 @@ uci_get_by_type() {
 }
 
 run_mode=$(uci_get_by_type global run_mode)
+
+echolog() {
+	local d="$(date "+%Y-%m-%d %H:%M:%S")"
+	echo -e "$d: $*" >>$LOG_FILE
+}
+
+first_type() {
+	local path_name=${1}
+	type -t -p "/bin/${path_name}" -p "${TMP_BIN_PATH}/${path_name}" -p "${path_name}" $@ | head -n1
+}
+
+ln_start_bin() {
+	local file_func=${1}
+	local ln_name=${2}
+
+	[ -d "${TMP_BIN_PATH}" ] || mkdir -p "${TMP_BIN_PATH}"
+	shift 2;
+	if [  "${file_func%%/*}" != "${file_func}" ]; then
+		[ ! -L "${file_func}" ] && {
+			ln -s "${file_func}" "${TMP_BIN_PATH}/${ln_name}"
+			file_func="${TMP_BIN_PATH}/${ln_name}"
+		}
+		[ -x "${file_func}" ] || echolog "  - $(readlink ${file_func}) No execuable permission, ${file_func} $@"
+	fi
+	echo ${file_func} $@ >&2
+	[ -n "${file_func}" ] || echolog "  - Not found ${ln_name}..."
+	${file_func:-echolog "  - ${ln_name}"} $@ >/dev/null 2>&1 &
+}
+
+get_ip_port_from() {
+	local __host=${1}; shift 1
+	local __ipv=${1}; shift 1
+	local __portv=${1}; shift 1
+
+	local val1 val2
+	val2=$(echo $__host | sed -n 's/^.*[:#]\([0-9]*\)$/\1/p')
+	val1="${__host%%${val2:+[:#]${val2}*}}"
+	eval "${__ipv}=\"$val1\"; ${__portv}=\"$val2\""
+}
+
+hosts_foreach() {
+	local __hosts
+	eval "__hosts=\$${1}"; shift 1
+	local __func=${1}; shift 1
+	local __default_port=${1}; shift 1
+	local __ret=1
+
+	[ -z "${__hosts}" ] && return 0
+	local __ip __port
+	for __host in $(echo $__hosts | sed 's/[ ,]/\n/g'); do
+		get_ip_port_from "$__host" "__ip" "__port"
+		eval "$__func \"${__host}\" \"\${__ip}\" \"\${__port:-${__default_port}}\" $*"
+		__ret=$?
+		[ ${__ret} -ge ${ERROR_NO_CATCH:-1} ] && return ${__ret}
+	done
+}
+
+get_first_dns() {
+	local __hosts_val=${1}; shift 1
+	__first() {
+		[ -z "${2}" ] && return 0
+		echo "${2}#${3}"
+		return 1
+	}
+	eval "hosts_foreach \"${__hosts_val}\" __first $@"
+}
+
+get_last_dns() {
+	local __hosts_val=${1}; shift 1
+	local __first __last
+	__every() {
+		[ -z "${2}" ] && return 0
+		__last="${2}#${3}"
+		__first=${__first:-${__last}}
+	}
+	eval "hosts_foreach \"${__hosts_val}\" __every $@"
+	[ "${__first}" ==  "${__last}" ] || echo "${__last}"
+}
+
+resolve_host_ip() {
+	local _host=${1}; shift 1
+	local _timeout="-t ${1:-3}"; shift 1
+	local _ver=${1:+-${1}}; shift 1
+
+	resolveip $_timeout $_ver $_host | head -n1
+}
+
 add_cron()
 {
+	touch $CRON_FILE
 	sed -i '/ssrplus.log/d' $CRON_FILE
 	[ -n "$(grep -w "/usr/share/shadowsocksr/subscribe_nodes.lua" $CRON_FILE)" ] && sed -i '/\/usr\/share\/shadowsocksr\/subscribe_nodes.lua/d' $CRON_FILE
 	[ -n "$(grep -w "/usr/share/shadowsocksr/update.sh" $CRON_FILE)" ] && sed -i '/\/usr\/share\/shadowsocksr\/update.sh/d' $CRON_FILE
@@ -83,6 +149,7 @@ add_cron()
 		[ -z "$(grep -w "/usr/share/shadowsocksr/update.sh" $CRON_FILE)" ] && echo "0 $(uci_get_by_type server_subscribe auto_update_time) * * * /usr/share/shadowsocksr/update.sh" >> $CRON_FILE
 	}
 	crontab $CRON_FILE
+	echolog "  - [$?] updating service registed"
 }
 
 del_cron()
@@ -90,101 +157,98 @@ del_cron()
 	sed -i '/shadowsocksr/d' $CRON_FILE
 	sed -i '/ssrplus.log/d' $CRON_FILE
 	/etc/init.d/cron restart
+	echolog "  - [$?] updating service monitor"
 }
 
 gen_config_file() {
-	local host=$(uci_get_by_name $1 server)
-	local usr_dns=`echo "$dnsstr"|sed 's/^\(.*\):\([^:]*\)$/\1/'`
-	local usr_port=`echo "$dnsstr"|sed 's/^\(.*\):\([^:]*\)$/\2/'`
-	[ "$usr_dns" == "127.0.0.1" ] && usr_dns="8.8.4.4" && usr_port="53" && dnsforward=1
-	local hostip config_file fastopen stype
-         if echo $host|grep -E "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$">/dev/null; then         
-         hostip=${host}
-         elif  [ "$host" != "${host#*:[0-9a-fA-F]}" ] ;then
-         hostip=${host}
-         else
-          hostip=`nslookup ${host} | grep 'Address 1' | sed 's/Address 1: //g'`
-          if echo $hostip|grep -E "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$">/dev/null; then
-          hostip=${hostip}
-          else
-          hostip=`cat /etc/ssr/ssr_ip`
-          fi
-         fi
-         [ $2 = "0" -a  $kcp_flag = "1" ] && hostip="127.0.0.1"
-         
-         if [ $2 = "0" ] ;then
-         config_file=$CONFIG_FILE
-         elif [ $2 = "1" ]; then
-         config_file=$CONFIG_UDP_FILE
-         else
-         config_file=$CONFIG_SOCK5_FILE
-         fi
-         if [ $(uci_get_by_name $1 fast_open 0) = "1" ] ;then
-         fastopen="true";
-         else
-         fastopen="false";
-         fi
-local_addr="0.0.0.0"
-local_port=$(uci_get_by_name $1 local_port)
-local stype=$(uci_get_by_name $1 type)
-local password=$(uci_get_by_name $1 password)
-local server_port=$(uci_get_by_name $1 server_port)
-local smode
-[ $2 = "2" ] && local_port=$slocal_port && local_addr=$slocal_addr
-if [ "${stype::2}" == "ss" ] ;then
-	[ $2 = "2" ] && smode="client"
-elif [ "$stype" == "v2ray" ] ;then
-	smode="tcp"
-	[ $2 = "1" ] && smode="udp" && [ -n "$dnsforward" ] && smode="fdns"
-	[ $2 = "2" ] && smode="socks"
-elif [ "$stype" == "trojan" ] || [ "$stype" == "trojan-go" ] ;then
-	smode="nat"
-	[ $2 = "1" ] && {
-		smode="forward"
-		local_port=$fdns_port
-		config_file=$CONFIG_DNS_FILE
-	}
-	[ $2 = "2" ] && smode="client"
-fi
-if [ "$stype" == "ss" ] ;then
-	cat <<-EOF >$config_file
+	local node=${1}
+	local rtype=${2}
+	local thread=${3:-1}
+
+	local usr_dns usr_port
+	get_ip_port_from "$(get_first_dns dnsstr 53)" usr_dns usr_port
+	if [ "${usr_dns}" == "127.0.0.1" ] || [ "${usr_dns}" == "0.0.0.0" ]; then
+		usr_dns="8.8.4.4" && usr_port="53"
+	fi
+
+	local hostip config_file fastopen stype msg
+	local host=$(uci_get_by_name $node server)
+        hostip=$(resolve_host_ip "$host")
+        [ -z "${rtype}" ] && [ "${kcp_flag}" = "1" ] && hostip="127.0.0.1"
+        
+        eval "config_file=\${CONFIG_${rtype}_FILE}"
+	mkdir -p "${TMP_PATH}"
+        fastopen="false"
+        [ "$(uci_get_by_name ${node} fast_open 0)" == "1" ] && fastopen="true"
+
+	local_addr="0.0.0.0"
+	local_port=$(uci_get_by_name "${node}" local_port 0)
+	local stype=$(uci_get_by_name "${node}" type)
+	local password=$(uci_get_by_name "${node}" password)
+	local server_port=$(uci_get_by_name "${node}" server_port)
+	local smode
+	[ "${rtype}" == "SOCK5" ] && local_port=$slocal_port && local_addr=$slocal_addr
+
+	if [ "${stype::2}" == "ss" ]; then
+		[ "${rtype}" = "SOCK5" ] && smode="client"
+	elif [ "$stype" == "v2ray" ]; then
+		smode="tcp"
+		[ "${rtype}" == "UDP" ] && smode="udp" && [ -n "$dnsforward" ] && smode="fdns"
+		[ "${rtype}" == "SOCK5" ] && smode="socks"
+	elif [ "$stype" == "trojan" ] || [ "$stype" == "trojan-go" ]; then
+		smode="nat"
+		[ "${rtype}" == "UDP" ] && {
+			smode="forward"
+			local_addr="127.0.0.1"
+			local_port=$fdns_port
+			config_file=$CONFIG_DNS_FILE
+		}
+		[ "${rtype}" == "SOCK5" ] && smode="client"
+	fi
+
+	[ "${smode}" == "fdns" ] || [ "${smode}" == "forward" ] && echolog "  - ${smode} mode(tcp/udp): ${local_addr}:${fdns_port} -> ${usr_dns}:${usr_port}"
+	if [ "$stype" == "ss" ]; then
+		cat <<-EOF >$config_file
 		{
 		    "server": "$hostip",
 		    "server_port": $server_port,
 		    "local_address": $local_addr,
 		    "local_port": $local_port,
 		    "password": "$password",
-		    "timeout": $(uci_get_by_name $1 timeout 60),
-		    "method": "$(uci_get_by_name $1 encrypt_method_ss)",
+		    "timeout": $(uci_get_by_name ${node} timeout 60),
+		    "method": "$(uci_get_by_name ${node} encrypt_method_ss)",
 		    "reuse_port": true,
 		    "fast_open": $fastopen
 		}
-EOF
-       elif [ "$stype" == "ssr" ] ;then
-	cat <<-EOF >$config_file
+		EOF
+	elif [ "$stype" == "ssr" ]; then
+		cat <<-EOF >$config_file
 		{
 		    "server": "$hostip",
 		    "server_port": $server_port,
 		    "local_address": $local_addr,
 		    "local_port": $local_port,
 		    "password": "$password",
-		    "timeout": $(uci_get_by_name $1 timeout 60),
-		    "method": "$(uci_get_by_name $1 encrypt_method)",
-		    "protocol": "$(uci_get_by_name $1 protocol)",
-		    "protocol_param": "$(uci_get_by_name $1 protocol_param)",
-		    "obfs": "$(uci_get_by_name $1 obfs)",
-		    "obfs_param": "$(uci_get_by_name $1 obfs_param)",
+		    "timeout": $(uci_get_by_name ${node} timeout 60),
+		    "method": "$(uci_get_by_name ${node} encrypt_method)",
+		    "protocol": "$(uci_get_by_name ${node} protocol)",
+		    "protocol_param": "$(uci_get_by_name ${node} protocol_param)",
+		    "obfs": "$(uci_get_by_name ${node} obfs)",
+		    "obfs_param": "$(uci_get_by_name ${node} obfs_param)",
 		    "reuse_port": true,
 		    "fast_open": $fastopen
 		}
-EOF
-      elif [ "$stype" == "v2ray" ] ;then
-        lua /usr/share/shadowsocksr/genv2config.lua $1 $smode $local_addr $local_port $usr_dns $usr_port $fdns_port > $config_file
-        sed -i 's/\\//g' $config_file
-      elif [ "$stype" == "trojan" ] || [ "$stype" == "trojan-go" ] ;then
-        lua /usr/share/shadowsocksr/gentrojanconfig.lua $1 $smode $3 $local_addr $local_port $usr_dns $usr_port $fdns_port > $config_file
-        sed -i 's/\\//g' $config_file
-fi
+		EOF
+	elif [ "$stype" == "v2ray" ]; then
+	        lua /usr/share/shadowsocksr/genv2config.lua $node $smode $local_addr $local_port $usr_dns $usr_port $fdns_port >$config_file
+	        sed -i 's/\\//g' $config_file
+	elif [ "$stype" == "trojan" ] || [ "$stype" == "trojan-go" ]; then
+	        lua /usr/share/shadowsocksr/gentrojanconfig.lua $node $smode $thread $local_addr $local_port $usr_dns $usr_port $fdns_port > $config_file
+	        sed -i 's/\\//g' $config_file
+	else
+		false
+	fi
+	echolog "  - [$?] config: ${config_file}"
 }
 
 get_arg_out() {
@@ -195,31 +259,22 @@ get_arg_out() {
 }
 
 start_rules() {
-	local proxyport ARG_UDP ac_ips
-	local server=$(uci_get_by_name $GLOBAL_SERVER server)
-	#resolve name
-	if echo $server|grep -E "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$">/dev/null; then         
-	server=${server}
-	elif  [ "$server" != "${server#*:[0-9a-fA-F]}" ] ;then
-	server=${server}
-	else
-        server=`nslookup ${server} | grep 'Address 1' | sed 's/Address 1: //g'`
-	 if echo $server|grep -E "^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$">/dev/null; then
-	  echo $server >/etc/ssr/ssr_ip
-	 else
-	  server=`cat /etc/ssr/ssr_ip`
-	 fi
-	fi
-	
-	kcp_server=$server
+	local server proxyport ARG_UDP ac_ips msg
+
+	echolog "Proxy rule for iptables..."
+
+	#resolve name to ip
+	server=$(resolve_host_ip $global_server)
+	echo "${server}" > /etc/ssr/ssr_ip
+	echolog "  - [$?] resolving nodes address: ${global_server} -> ${server}"
 	
 	local local_port=$(uci_get_by_name $GLOBAL_SERVER local_port)
 	local lan_ac_ips=$(uci_get_by_type access_control lan_ac_ips)
 	local lan_ac_mode="b"
 	local router_proxy=$(uci_get_by_type access_control router_proxy)
-	if [ "$GLOBAL_SERVER" = "$UDP_RELAY_SERVER" -a $kcp_flag = 0 ]; then
+	if [ "$GLOBAL_SERVER" == "$UDP_RELAY_SERVER" ] && [ "$kcp_flag" == "0" ]; then
 		ARG_UDP="-u"
-	elif [ -n "$UDP_RELAY_SERVER" -a ! "$UDP_RELAY_SERVER" == "nil" ]; then
+	elif [ -n "$UDP_RELAY_SERVER" ] && [ ! "$UDP_RELAY_SERVER" == "nil" ]; then
 		ARG_UDP="-U"
 	fi
 	
@@ -228,25 +283,27 @@ start_rules() {
 			w|W|b|B) ac_ips="$lan_ac_mode$lan_ac_ips";;
 		esac
 	fi
+	echolog "  - [$lan_ac_mode] Local ACL: ${lan_ac_ips:-NONE}"
 	
-#deal	gfw firewall rule
-	local gfwmode="" 
-	if [ "$run_mode" = "gfw" ]; then
-	gfwmode="-g"
+	local gfwmode msg 
+	if [ "$run_mode" == "gfw" ]; then
+		gfwmode="-g"
+		msg="in 'gfw' mode, proxy gfwlist only"
 	elif [ "$run_mode" = "router" ]; then
-	gfwmode="-r"
+		gfwmode="-r"
+		msg="in 'router' mode, proxy nun-chinalist"
 	elif [ "$run_mode" = "oversea" ]; then
-	gfwmode="-c"
+		gfwmode="-c"
+		msg="in 'oversea' mode, proxy chinalist only"
 	elif [ "$run_mode" = "all" ]; then
-	gfwmode="-z"
+		gfwmode="-z"
+		msg="in 'all' mode, proxy all stream"
 	fi
-	
-	local dports=$(uci_get_by_type global dports 1)
-  if [ $dports = "1" ] ;then
-	proxyport="-m multiport --dports 1:65535 "
-	else
-	proxyport="-m multiport --dports 22,53,587,465,995,993,143,80,443,8443,5353 "
-  fi
+	echolog "  - ${msg:-the wrong running mode}"
+
+	local dports=$(uci_get_by_type global dports 1:65535)
+	proxyport="-m multiport --dports $dports "
+	echolog "  - proxy ports: ${dports}"
 
 	/usr/bin/ssr-rules \
 		-s "$server" \
@@ -261,8 +318,9 @@ start_rules() {
 		-G "$(uci_get_by_type access_control lan_gm_ips)" \
 		-D "$proxyport" \
 		$(get_arg_out) $gfwmode $ARG_UDP
-			
-	return $?
+	local ret=$?			
+	echolog "  - [${ret}] iptable rules applied"
+	return ${ret}
 }
 
 start_pdnsd() {
@@ -272,410 +330,408 @@ start_pdnsd() {
 	local cmd="$4"
 	local param=config
   
-	local tcp_dns_list="208.67.222.222, 208.67.220.220"
-	[ -n "$dnsforward" -a "${utype::2}" == "ss" ] && usr_dns=
+	local tcp_dns_list=$(uci_get_by_type global fallback_dns "208.67.222.222, 208.67.220.220")
+	local tcp_dns_list_port=$(uci_get_by_type global fallback_dns_port 5353)
+
+	echolog "Pdnsd DNS caching service..."
 	[ -z "$usr_dns" ] && usr_dns="8.8.4.4" && usr_port="53"
 	[ -n "$dnsforward" ] && [ -f "${CONFIG_DNS_FILE}" ] && {
 		# DNS server forward for trojan/trojan-go
 		[ "$stype" == "trojan" ] && param=-config
-		$cmd -${param} $CONFIG_DNS_FILE >> /tmp/ssrplus.log 2>&1 &
+		ln_start_bin "$(first_type ${cmd})" ${cmd} -${param} $CONFIG_DNS_FILE
+		echolog "  - start DNS forwarding service, ${cmd}"
 	}
-  [ -d /var/etc ] || mkdir -p /var/etc
+	[ -d /var/etc ] || mkdir -p /var/etc
 
-   if [ ! -d /var/pdnsd ];then
-       mkdir -p /var/pdnsd
-       echo -ne "pd13\000\000\000\000" >/var/pdnsd/pdnsd.cache
-       chown -R nobody:nogroup /var/pdnsd
-   fi
+	if [ ! -d /var/pdnsd ]; then
+		mkdir -p /var/pdnsd
+		echo -ne "pd13\000\000\000\000" >/var/pdnsd/pdnsd.cache
+		chown -R nobody:nogroup /var/pdnsd
+	fi
 	
-	cat > /var/etc/pdnsd.conf <<EOF
-global {
-	perm_cache=1024;
-	cache_dir="/var/pdnsd";
-	pid_file = /var/run/pdnsd.pid;
-	run_as="nobody";
-	server_ip = 127.0.0.1;
-	server_port = $dns_port;
-	status_ctl = on;
-	query_method = tcp_only;
-	min_ttl=1h;
-	max_ttl=1w;
-	timeout=10;
-	neg_domain_pol=on;
-	proc_limit=2;
-	procq_limit=8;
-	par_queries=1;
-}
-server {
-	label= "ssr-usrdns";
-	ip = $usr_dns;
-	port = $usr_port;
-	timeout=6;
-	uptest=none;
-	proxy_only=on;
-	interval=10m;
-	purge_cache=off;
-	caching=on;
-}
-server {
-	label= "ssr-pdnsd";
-	ip = $tcp_dns_list;
-	port = 5353;
-	timeout=6;
-	uptest=none;
-	interval=10m;
-	purge_cache=off;
-	caching=on;
-}
-EOF
+	cat > "${CONFIG_PDNSD_FILE}" <<-EOF
+	global {
+		perm_cache=1024;
+		cache_dir="/var/pdnsd";
+		pid_file = /var/run/pdnsd_ssr.pid;
+		run_as="nobody";
+		server_ip = 127.0.0.1;
+		server_port = $dns_port;
+		status_ctl = on;
+		query_method = tcp_only;
+		min_ttl=1h;
+		max_ttl=1w;
+		timeout=10;
+		neg_domain_pol=on;
+		proc_limit=2;
+		procq_limit=8;
+		par_queries=1;
+	}
+	server {
+		label= "ssr-usrdns";
+		ip = $usr_dns;
+		port = $usr_port;
+		timeout=6;
+		uptest=none;
+		proxy_only=on;
+		interval=10m;
+		purge_cache=off;
+		caching=on;
+	}
+	server {
+		label= "ssr-pdnsd";
+		ip = $tcp_dns_list;
+		port = $tcp_dns_list_port;
+		timeout=6;
+		uptest=none;
+		interval=10m;
+		purge_cache=off;
+		caching=on;
+	}
+	EOF
 
-	service_start /usr/sbin/pdnsd -c /var/etc/pdnsd.conf -d
+	service_start /usr/sbin/pdnsd -c "${CONFIG_PDNSD_FILE}" -d
+	echolog "  - on 127.0.0.1:${dns_port}, upstream(tcp/${usr_port}): ${usr_dns}, fallback(tcp/${tcp_dns_list_port}): ${tcp_dns_list}"
 }
 
 
 start_redir() {
-	local ARG_OTA sscmd ucmd pid_file
-	case "$(uci_get_by_name $GLOBAL_SERVER auth_enable)" in
-		1|on|true|yes|enabled) ARG_OTA="-A";;
-		*) ARG_OTA="";;
-	esac
-	
+	echolog "Proies starts..."
 	#deal kcp
-	if [ $kcp_enable = "1" ] ;then
-		[ ! -f "/usr/bin/kcptun-client" ]  &&  return 1
-		
-		local kcp_str=`/usr/bin/kcptun-client -v |grep kcptun|wc -l`
-		[ "0" = $kcp_str ] && return 1
+	if [ "$kcp_enable" == "1" ]; then
+		[ -f "/usr/bin/kcptun-client" ] || return 1
 		local kcp_port=$(uci_get_by_name $GLOBAL_SERVER kcp_port)
 		local server_port=$(uci_get_by_name $GLOBAL_SERVER server_port)
 		local password=$(uci_get_by_name $GLOBAL_SERVER kcp_password)
 		local kcp_param=$(uci_get_by_name $GLOBAL_SERVER kcp_param)
-		[ "$password" != "" ] && password="--key "${password}
 		service_start /usr/bin/kcptun-client \
-			-r $kcp_server:$kcp_port \
-			-l :$server_port $password $kcp_param
+			-r ${global_server}:${kcp_port} \
+			-l ":${server_port}" ${password:+--key ${password}} "${kcp_param}"
+		echolog "  [$?] kcptun-client: KCP [:${server_port}] -> ${global_server}:${kcp_port}"
 		kcp_enable_flag=1
 	fi
-	
-    redir_tcp=1
-    if [ "$stype" == "ss" ] ;then
-        sscmd="/usr/bin/ss-redir"
-       elif [ "$stype" == "ssr" ] ;then
-        sscmd="/usr/bin/ssr-redir"
-       elif [ "$stype" == "v2ray" ] ;then
-        sscmd="/usr/bin/v2ray/v2ray"
-       elif [ "$stype" == "trojan" ] ;then
-        sscmd="/usr/sbin/trojan"
-       elif [ "$stype" == "trojan-go" ] ;then
-        sscmd="/usr/sbin/trojan-go"
-       else
-        redir_tcp=0
-    fi
 
-    redir_udp=1
-    if [ "$utype" == "ss" ] ;then
-        ucmd="/usr/bin/ss-redir"
-       elif [ "$utype" == "ssr" ] ;then
-        ucmd="/usr/bin/ssr-redir"
-       elif [ "$utype" == "v2ray" ] ;then
-        ucmd="/usr/bin/v2ray/v2ray"
-       elif [ "$utype" == "trojan" ] ;then
-        ucmd="/usr/sbin/trojan"
-       elif [ "$utype" == "trojan-go" ] ;then
-        ucmd="/usr/sbin/trojan-go"
-       else
-        redir_udp=0
-     fi
+	local config_file="${CONFIG__FILE}"
+	local msg=
+	[ -n "$stype" ] && gen_config_file "$GLOBAL_SERVER" "" ${threads}
+	if [ "$stype" == "ss" ] || [ "$stype" == "ssr" ]; then
+		local ARG_OTA
+		case "$(uci_get_by_name $GLOBAL_SERVER auth_enable)" in
+			1|on|true|yes|enabled) ARG_OTA="-A";;
+			*) ARG_OTA="";;
+		esac
+		for i in $(seq 1 $threads); do
+			ln_start_bin "$(first_type ${stype}-redir)" ${stype}-redir -c "$config_file" $ARG_OTA -f /var/run/ssr-retcp_$i.pid
+		done
+		msg="TCP threads: ${threads} ${ARG_OTA:+=(OTA)}"
+	elif [ "$stype" == "v2ray" ] || [ "$stype" == "trojan-go" ]; then
+		ln_start_bin "$(first_type /usr/sbin/v2ray/${stype} /usr/bin/v2ray/${stype} ${stype})" ${stype} -config "$config_file"
+		[ "$stype" == "trojan-go" ] && msg="TCP/UDP threads: 1" || msg="TCP threads: 1"
+	elif [ "$stype" == "trojan" ]; then
+		for i in $(seq 1 $threads); do
+			ln_start_bin "$(first_type ${stype})" ${stype} --config "$config_file"
+		done
+		msg="TCP/UDP threads: $threads"
+	fi
+	[ -n "$msg" ] && redir_tcp=1
+	echolog "  - ${stype}: ${msg:-TCP node, not a managed type}"
 
-  [ ${redir_tcp} -eq 1 ] && gen_config_file $GLOBAL_SERVER 0 ${threads}
-	
-  if [ "$stype" == "ss" -o "$stype" == "ssr" ] ;then
-    local last_config_file=$CONFIG_FILE
-    local pid_file="/var/run/ssr-retcp.pid"
-    for i in $(seq 1 $threads); do
-     $sscmd -c $CONFIG_FILE $ARG_OTA -f /var/run/ssr-retcp_$i.pid >>/tmp/ssrplus.log 2>&1
-    done
-    echo "$(date "+%Y-%m-%d %H:%M:%S") Shadowsocks/ShadowsocksR $threads Threads Started!" >> /tmp/ssrplus.log  
-  elif [ "$stype" == "v2ray" ] || [ "$stype" == "trojan-go" ] ;then
-    $sscmd -config $CONFIG_FILE >>/tmp/ssrplus.log 2>&1 &
-    echo "$(date "+%Y-%m-%d %H:%M:%S") $($sscmd -version | head -1) Started!" >> /tmp/ssrplus.log
-  elif [ "$stype" == "trojan" ] ;then
-    for i in $(seq 1 $threads); do
-     $sscmd --config $CONFIG_FILE >> /tmp/ssrplus.log 2>&1 &
-     echo "$(date "+%Y-%m-%d %H:%M:%S") $($sscmd --version 2>&1 | head -1) ${i}/${threads} Started!" >> /tmp/ssrplus.log
-    done
-  fi
+	config_file="${CONFIG_UDP_FILE}"
+	msg=
+	[ -n "${utype}" ] && gen_config_file "$UDP_RELAY_SERVER" UDP ${threads}
+	if [ "$utype" == "ss" -o "$utype" == "ssr" ]; then
+		local ARG_OTA
+		case "$(uci_get_by_name $UDP_RELAY_SERVER auth_enable)" in
+			1|on|true|yes|enabled) ARG_OTA="-A";;
+			*) ARG_OTA="";;
+		esac
+      		for i in $(seq 1 $threads); do
+			ln_start_bin "$(first_type ${utype})" ${utype}-redir -c "$config_file" $ARG_OTA -U -f /var/run/ssr-reudp_$i.pid
+		done
+		msg="UDP threads: $threads ${ARG_OTA:+=(OTA)}"
+	elif [ "$utype" == "v2ray" ]; then
+		ln_start_bin "$(first_type /usr/sbin/v2ray/${utype} /usr/bin/v2ray/${utype} ${utype})" ${utype} -config "$config_file"
+		msg="UDP threads: 1"
+	elif [ "$utype" == "trojan" ] || [ "$utype" == "trojan-go" ]; then
+		# UDP Relay skiped for trojan[-go]
+		cat <<-EOF >$config_file
+			skiped
+		EOF
+		ln_start_bin "/sbin/logread" logread -f "${config_file}"
+		msg="UDP managed by the main node, no new threads needed"
+	fi
+	[ -n "$msg" ] && redir_udp=1
+	echolog "  - ${utype}: ${msg:-UDP node, not a managed type}"
+}
 
-    [ ${redir_udp} -eq 1 ] && gen_config_file $UDP_RELAY_SERVER 1 ${threads}
-    if [ "$utype" == "ss" -o "$utype" == "ssr" ] ;then
-      case "$(uci_get_by_name $UDP_RELAY_SERVER auth_enable)" in
-        1|on|true|yes|enabled) ARG_OTA="-A";;
-        *) ARG_OTA="";;
-      esac		
-      last_config_file=$CONFIG_UDP_FILE
-      pid_file="/var/run/ssr-reudp.pid"
-      for i in $(seq 1 $threads); do
-       $ucmd -c $last_config_file $ARG_OTA -U -f /var/run/ssr-reudp_$i.pid >/dev/null 2>&1
-      done
-    elif [ "$stype" == "v2ray" ] ; then
-        $ucmd -config $CONFIG_UDP_FILE >/dev/null 2>&1 &   
-    elif [ "$utype" == "trojan" ] || [ "$utype" == "trojan-go" ] ;then
-	# UDP Relay skiped for trojan-go
-	local logread_file=$CONFIG_UDP_FILE
-	cat <<-EOF >$logread_file
-skiped
-EOF
-        /sbin/logread -f "${logread_file}" &
-    fi
-
-    local dnsserver
-    for dnsserver in $(uci_get_resolver_addrs); do
-	ipset add ss_spec_wan_ac $dnsserver nomatch 2>/dev/null  
-    done
-
-  if $pdnsd ;then
-    local dnsserver dnsport
-    dnsserver=`echo "$dnsstr"|sed 's/^\(.*\):\([^:]*\)$/\1/'`
-    dnsport=`echo "$dnsstr"|sed 's/^\(.*\):\([^:]*\)$/\2/'`
-    [ -n "$dnsforward" ] || {
-    if [ "$run_mode" = "gfw" ]; then
-        ipset add gfwlist $dnsserver 2>/dev/null
-    elif [ "$run_mode" = "oversea" ]; then
-        ipset add oversea $dnsserver 2>/dev/null
-    else
-        ipset add ss_spec_wan_ac $dnsserver nomatch 2>/dev/null  
-    fi
-    }
-    start_pdnsd $dnsserver $dnsport $utype "$ucmd"
-    pdnsd_enable_flag=1
-  fi
-	
-	if [ "$(uci_get_by_type global enable_switch)" = "1" ] ;then
-		if [ "$(uci_get_by_name $GLOBAL_SERVER switch_enable)" = "1" ] ;then
-			if [ -z "$switch_server" ] ;then
-				local switch_time=$(uci_get_by_type global switch_time)
-				local switch_timeout=$(uci_get_by_type global switch_timeout)
-				service_start /usr/bin/ssr-switch start $switch_time $switch_timeout
-				switch_enable=1
+other_service() {
+	msg="No pdnsd DNS cache service"
+	if ${pdnsd}; then
+		local dnsserver dnsport list
+		get_ip_port_from "$(get_first_dns dnsstr 53)" dnsserver dnsport
+		if [ "$run_mode" = "gfw" ]; then
+			list="gfwlist"
+		elif [ "$run_mode" = "router" ]; then
+			list="ss_spec_wan_ac"
+		elif [ "$run_mode" = "oversea" ]; then
+			list="oversea"
+		else
+			list="ss_spec_wan_ac"
+		fi
+		if [ -n "${dnsforward}" ]; then
+			if [ "${utype::2}" == "ss" ]; then
+				list="gfwlist"
+				echolog "  - forward mode not supported by ${utype}, fallback to normal."
+			else
+				dnsserver="127.0.0.1"
+				dnsport="${fdns_port}"
 			fi
 		fi
+		[ "${dnsserver}" != "127.0.0.1" ] && [ "${dnsserver}" != "0.0.0.0" ] && ipset add "${list}" "$dnsserver" nomatch >/dev/null 2>&1
+		msg="[$?] to ipset list ${list}: ${dnsserver}"
+		start_pdnsd "$dnsserver" "$dnsport" "$utype" "$ucmd"
+		pdnsd_enable_flag=1
+	fi
+	echolog "  - ${msg}"
+	
+	if [ -z "$switch_server" ] && [ "$(uci_get_by_type global monitor_enable)" == 1 ]; then
+		let total_count=server_count+redir_tcp+redir_udp+tunnel_enable+kcp_enable_flag+local_enable+switch_enable
+		[ $total_count -gt 0 ] && {
+			service_start /usr/bin/ssr-monitor $server_count $redir_tcp $redir_udp $tunnel_enable $kcp_enable_flag $local_enable $pdnsd_enable_flag $switch_enable $stype
+			echolog "  - [$?] start ssr-monitor service"
+		}
 	fi
 
-	return $?
+	if [ -z "$switch_server" ] && [ "$(uci_get_by_type global enable_switch)" == "1" ]; then
+		msg="Auto switcher globaly enabled"
+		if [ "$(uci_get_by_name $GLOBAL_SERVER switch_enable)" == "1" ]; then
+			local switch_time=$(uci_get_by_type global switch_time)
+			local switch_timeout=$(uci_get_by_type global switch_timeout)
+			service_start /usr/bin/ssr-switch start "$switch_time" "$switch_timeout"
+			switch_enable=1
+			msg="${msg}, [$?]service starting..."
+		else
+			msg="${msg}, but configured no allowed by selected node."
+		fi
+		echolog "${msg}"
+	fi
 }
 
 gen_service_file() {
-	if [ $(uci_get_by_name $1 fast_open) = "1" ] ;then
-	fastopen="true";
-	else
-	fastopen="false";
-	fi       
-	cat <<-EOF >$2
+	local node=${1}
+	local config_file=${2}
+
+	local fastopen="false";
+	[ "$(uci_get_by_name ${node} fast_open)" == "1" ] && fastopen="true";
+	cat <<-EOF >"${config_file}"
 		{
 		    "server": "0.0.0.0",
-		    "server_port": $(uci_get_by_name $1 server_port),
-		    "password": "$(uci_get_by_name $1 password)",
-		    "timeout": $(uci_get_by_name $1 timeout 60),
-		    "method": "$(uci_get_by_name $1 encrypt_method)",
-		    "protocol": "$(uci_get_by_name $1 protocol)",
-		    "protocol_param": "$(uci_get_by_name $1 protocol_param)",
-		    "obfs": "$(uci_get_by_name $1 obfs)",
-		    "obfs_param": "$(uci_get_by_name $1 obfs_param)",
+		    "server_port": $(uci_get_by_name ${node} server_port 0),
+		    "password": "$(uci_get_by_name ${node} password)",
+		    "timeout": $(uci_get_by_name ${node} timeout 60),
+		    "method": "$(uci_get_by_name ${node} encrypt_method)",
+		    "protocol": "$(uci_get_by_name ${node} protocol)",
+		    "protocol_param": "$(uci_get_by_name ${node} protocol_param)",
+		    "obfs": "$(uci_get_by_name ${node} obfs)",
+		    "obfs_param": "$(uci_get_by_name ${node} obfs_param)",
 		    "fast_open": $fastopen
 		}
-EOF
+	EOF
+	echolog "  - config: ${config_file}"
 }
 
 start_service() {
-[ $(uci_get_by_name $1 enable) = "0"  ]  && return 1
-let server_count=server_count+1
-if [ $server_count = 1 ] ;then
-iptables -N SSR-SERVER-RULE && \
-iptables -t filter -I INPUT  -j SSR-SERVER-RULE
-fi
+	local snode=${1}
 
-gen_service_file $1 /var/etc/${NAME}_${server_count}.json
-/usr/bin/ssr-server -c /var/etc/${NAME}_${server_count}.json -u -f /var/run/ssr-server${server_count}.pid >/dev/null 2>&1
-iptables -t filter -A SSR-SERVER-RULE -p tcp --dport $(uci_get_by_name $1 server_port) -j ACCEPT
-iptables -t filter -A SSR-SERVER-RULE -p udp --dport $(uci_get_by_name $1 server_port) -j ACCEPT
-return 0
+	[ $(uci_get_by_name ${snode} enable) = "0"  ] && return 1
+	let server_count=server_count+1
+	local sport=$(uci_get_by_name ${snode} server_port 0)
+	if [ $server_count -eq 1 ]; then
+		iptables -N SSR-SERVER-RULE && \
+		iptables -t filter -I INPUT  -j SSR-SERVER-RULE
+	fi
+
+	mkdir -p /var/run
+	gen_service_file ${snode} /var/etc/${NAME}_${server_count}.json
+	ln_start_bin "$(first_type ssr-server)" ssr-server -c /var/etc/${NAME}_${server_count}.json -u -f /var/run/ssr-server${server_count}.pid
+	iptables -t filter -A SSR-SERVER-RULE -p tcp --dport "${sport}" -j ACCEPT
+	iptables -t filter -A SSR-SERVER-RULE -p udp --dport "${sport}" -j ACCEPT
+	echolog "  - [$?] iptable rules for tcp/udp:${sport} service"
 }
+
 gen_serv_include() {
-FWI=$(uci get firewall.shadowsocksr.path 2>/dev/null) 
-[ -n "$FWI" ] || return 0
-if [ ! -f $FWI ] ;then
-echo '#!/bin/sh' >$FWI
-fi
-extract_rules() {
-echo "*filter"
-iptables-save -t filter | grep SSR-SERVER-RULE|sed -e "s/^-A INPUT/-I INPUT/" 
-echo 'COMMIT'
-}
-	cat <<-EOF >>$FWI
-	iptables-save -c | grep -v "SSR-SERVER" | iptables-restore -c
-	iptables-restore -n <<-EOT
-	$(extract_rules)
-	EOT
-EOF
+	local FWI=$(uci get firewall.shadowsocksr.path 2>/dev/null)
 
+	[ -n "$FWI" ] || return 0
+	[ -f "$FWI" ] || echo '#!/bin/sh' >$FWI
+	extract_rules() {
+		echo "*filter"
+		iptables-save -t filter | grep SSR-SERVER-RULE | sed -e "s/^-A INPUT/-I INPUT/" 2>/dev/null
+		echo 'COMMIT'
+	}
+	cat <<-EOF >>$FWI
+		iptables-save -c | grep -v "SSR-SERVER" | iptables-restore -c
+		iptables-restore -n <<-EOT
+		$(extract_rules)
+		EOT
+	EOF
+	echo "  - [$?] firewall rules auto restore prepared: ${FWI}"
 }
+
 start_server() {
+	[ "$(uci_get_by_type global global_server)" = "nil" ] && return 0
 	SERVER_ENABLE=$(uci_get_by_type server_global enable_server)
 	[ "$SERVER_ENABLE" = 0 ] && return 0
-	mkdir -p /var/run /var/etc
 
+	echolog "Local server..."
 	config_load $NAME
 	config_foreach start_service server_config
 	gen_serv_include
-	return 0
 }
 
-start_local() {
+start_sock5() {
 	local local_server=$(uci_get_by_type socks5_proxy server)
+
 	[ "$local_server" == "same" ] && local_server=$UDP_RELAY_SERVER
 	[ "$local_server" == "nil" ] && return 0
-	local ltype=$(uci_get_by_name $local_server type)
-	mkdir -p /var/run /var/etc
-	gen_config_file $local_server 2 1
-    if [ "$ltype" == "ss" ] ;then
-        sscmd="/usr/bin/ss-local"
-       elif [ "$ltype" == "ssr" ] ;then
-        sscmd="/usr/bin/ssr-local"
-       elif [ "$ltype" == "v2ray" ] ;then
-        sscmd="/usr/bin/v2ray/v2ray"
-       elif [ "$ltype" == "trojan" ] ;then
-        sscmd="/usr/sbin/trojan"
-       elif [ "$ltype" == "trojan-go" ] ;then
-        sscmd="/usr/sbin/trojan-go"
-    fi
-    if [ "${ltype::2}" == "ss" ] ;then
-	$sscmd -c $CONFIG_SOCK5_FILE -u  \
-		-l $slocal_port \
-		-b $slocal_addr \
-		-f /var/run/ssr-local.pid >/dev/null 2>&1
-       elif [ "$ltype" == "v2ray" ] || [ "$ltype" == "trojan-go" ];then
-	$sscmd -config $CONFIG_SOCK5_FILE >/dev/null 2>&1 &
-       elif [ "$ltype" == "trojan" ] ;then
-	$sscmd --config $CONFIG_SOCK5_FILE >/dev/null 2>&1 &
-    fi
-	local_enable=1	
+
+	echolog "Sock5 service..."
+	local ltype=$(uci_get_by_name "$local_server" type)
+	local config_file="$CONFIG_SOCK5_FILE"
+	local msg
+
+	mkdir -p /var/run
+	gen_config_file "$local_server" SOCK5 1
+	if [ "${ltype::2}" == "ss" ]; then
+		ln_start_bin "$(first_type ${ltype}-local)" ${ltype}-local -c "$config_file" -u \
+			-l "$slocal_port" \
+			-b "$slocal_addr" \
+			-f /var/run/ssr-local.pid
+		msg="on ${slocal_addr}:${slocal_port}"
+	elif [ "$ltype" == "v2ray" ] || [ "$ltype" == "trojan-go" ]; then
+		ln_start_bin "$(first_type /usr/sbin/v2ray/${ltype} /usr/bin/v2ray/${ltype} ${ltype})" ${ltype} -config "$config_file"
+		msg="on ${slocal_addr}:${slocal_port}"
+	elif [ "$ltype" == "trojan" ]; then
+		ln_start_bin "$(first_type ${ltype})" ${ltype} --config "$config_file"
+		msg="on ${slocal_addr}:${slocal_port}"
+	fi
+	[ -n "${msg}" ] && local_enable=1
+	echolog "  - ${msg:-not supported}, ${ltype}"
 }
 
 rules() {
-	[ "$GLOBAL_SERVER" = "nil" ] && return 1
-	mkdir -p /var/run /var/etc
+	[ "$GLOBAL_SERVER" = "nil" ] && echolog "  - iptable rules skiped" && return 1
 	start_rules
+	ret=$?
+	[ "${ret}" -eq 0 ] || echolog "  - [$?] iptable rules fails"
+	return "${ret}"
 }
 
 start() {
-	local GLOBAL_SERVER UDP_RELAY_SERVER stype kcp_server kcp_enable udp_server udp_local_port
-	local utype slocal_port slocal_addr dns_mode dnsstr pdnsd dnsforward threads
-	if [ -z "$switch_server" ] ;then
+	local GLOBAL_SERVER UDP_RELAY_SERVER stype global_server kcp_enable udp_server udp_local_port
+	local msg utype slocal_port slocal_addr dns_mode dnsstr pdnsd dnsforward threads
+	if [ -z "$switch_server" ]; then
 		GLOBAL_SERVER=$(uci_get_by_type global global_server)
+		msg="On starting..."
 	else
-		GLOBAL_SERVER=$switch_server
+		GLOBAL_SERVER="$switch_server"
 		switch_enable=1
+		msg="On switching: [$switch_server]..."
 	fi
+	echolog "${msg}"
 
 	UDP_RELAY_SERVER=$(uci_get_by_type global udp_relay_server)
 
 	stype=$(uci_get_by_name $GLOBAL_SERVER type)
+	global_server=$(uci_get_by_name $GLOBAL_SERVER server)
 	kcp_enable=$(uci_get_by_name $GLOBAL_SERVER kcp_enable 0)
 
-	dns_mode=$(uci_get_by_type global dns_mode "disable")
 	[ "$UDP_RELAY_SERVER" = "same" ] && UDP_RELAY_SERVER=$GLOBAL_SERVER
 
-	if [ "${GLOBAL_SERVER}${UDP_RELAY_SERVER}" == "nilnil" ] ; then
+	if [ "${GLOBAL_SERVER}" == "nil" ]; then
 		kcp_enable=0; switch_enable=0; dns_mode="disable"
+		echo "  - null main nodes selected, no TProxy mode"
 	fi
 
-	if [ "$(uci_get_by_type global threads 0)" = "0" ] ;then
+	if [ "$(uci_get_by_type global threads 0)" == "0" ]; then
 		threads=$(cat /proc/cpuinfo | grep 'processor' | wc -l)
 	else
 		threads=$(uci_get_by_type global threads)
 	fi
 
-	[ $kcp_enable = "1" ] && kcp_flag=1
+	[ "$kcp_enable" = "1" ] && kcp_flag=1
 	utype=$(uci_get_by_name $UDP_RELAY_SERVER type)
 	udp_server=$(uci_get_by_name $UDP_RELAY_SERVER server)
 	udp_local_port=$(uci_get_by_name $UDP_RELAY_SERVER local_port)
 
 	dnsstr=$(uci_get_by_type global tunnel_forward "8.8.4.4:53")
 	pdnsd=false;
-	[ "$dns_mode" == "pdnsd" ] && pdnsd=true
+	dns_mode=$(uci_get_by_type global dns_mode "disable")
+	echo "$dns_mode" | grep -q "^pdnsd" && pdnsd=true
+	[ "${dns_mode}" == "pdnsd+node" ] && dnsforward=1
 
 	slocal_port=$(uci_get_by_type socks5_proxy local_port 1080)
 	slocal_addr=$(uci_get_by_type socks5_proxy local_address "0.0.0.0")
 
-	rm -f /var/etc/shadowsocksr*
+	rm -vrf ${TMP_PATH}/
 
-	if rules ;then
-	/usr/share/shadowsocksr/gfw2ipset.sh $dns_port
-	/usr/share/shadowsocksr/chinaipset.sh
-
-	mkdir -p /tmp/dnsmasq.d && cp -a /etc/dnsmasq.ssr /tmp/ && cp -a /etc/dnsmasq.oversea /tmp/
-	if ! [ "$run_mode" = "oversea" ] ;then
-		cat > /tmp/dnsmasq.d/dnsmasq-ssr.conf <<EOF
-conf-dir=/tmp/dnsmasq.ssr
-EOF
-  else
-		cat > /tmp/dnsmasq.d/dnsmasq-ssr.conf <<EOF
-conf-dir=/tmp/dnsmasq.oversea
-EOF
-	fi
-	/etc/init.d/dnsmasq restart >/dev/null 2>&1
-
+	if rules; then
+		if mkdir /tmp/dnsmasq.ssr >/dev/null 2>&1; then
+			echolog "Initial ssr dnsmasq running base..."
+			cp -a /etc/dnsmasq.ssr /tmp/ && cp -a /etc/dnsmasq.oversea /tmp/
+			/usr/share/shadowsocksr/gfw2ipset.sh $dns_port
+			echolog "  - [$?] gen ssr base configure from ip list files dnsmasq"
+			/usr/share/shadowsocksr/chinaipset.sh
+			echolog "  - [$?] re-flush china ip to ipset list china"
+		fi
+		local dnsmasq_mode=ssr
+		[ "$run_mode" == "oversea" ] && dnsmasq_dir=/tmp/dnsmasq.oversea
+		cat > /tmp/dnsmasq.d/dnsmasq-ssr.conf <<-EOF
+			conf-dir=/tmp/dnsmasq.${dnsmasq_mode}
+		EOF
 	else
 		rm -vrf /tmp/dnsmasq.ssr /tmp/dnsmasq.oversea /tmp/dnsmasq.d/dnsmasq-ssr.conf
+		echolog "  - [$?] clean ssr dnsmasq running base"
 	fi
+	/etc/init.d/dnsmasq restart >/dev/null 2>&1
+	echolog "  - [$?] dnsmasq service restart"
 
 	start_redir
-	start_local
-
-	local ENABLE_SERVER=$(uci_get_by_type global global_server)
-	[ "$ENABLE_SERVER" = "nil" ] || start_server
-	
-	if [ $(uci_get_by_type global monitor_enable) = 1 ] ;then
-		let total_count=server_count+redir_tcp+redir_udp+tunnel_enable+kcp_enable_flag+local_enable+switch_enable
-		[ $total_count -gt 0 ] && service_start /usr/bin/ssr-monitor $server_count $redir_tcp $redir_udp $tunnel_enable $kcp_enable_flag $local_enable $pdnsd_enable_flag $switch_enable $stype
-
-	fi
+	start_sock5
+	start_server
+	other_service
 
 	add_cron
 }
 
 boot() {
 	(sleep 10 && start >/dev/null 2>&1) &
+	echolog "On booting, wait 10 seconds..."
 }
 
 stop() {
+	echolog "On stopping..."
 	/usr/bin/ssr-rules -f
-	srulecount=`iptables -L|grep SSR-SERVER-RULE|wc -l`
-	if [ $srulecount -gt 0 ] ;then
-	iptables -F SSR-SERVER-RULE
-	iptables -t filter -D INPUT  -j SSR-SERVER-RULE
-	iptables -X SSR-SERVER-RULE 2>/dev/null
+	if iptables -L | grep SSR-SERVER-RULE; then
+		iptables -F SSR-SERVER-RULE
+		iptables -t filter -D INPUT  -j SSR-SERVER-RULE
+		iptables -X SSR-SERVER-RULE 2>/dev/null
+		echo "  - [$?] clean iptable rules"
 	fi
-	if [ -z "$switch_server" ] ;then
-		kill -9 $(busybox ps -w | grep ssr-switch | grep -v grep | awk '{print $1}') >/dev/null 2>&1
-	fi
-	if [ $(uci_get_by_type global monitor_enable) = 1 ] ;then
-		kill -9 $(busybox ps -w | grep ssr-monitor | grep -v grep | awk '{print $1}') >/dev/null 2>&1
-	fi
-	
 	if [ -f "/tmp/dnsmasq.d/dnsmasq-ssr.conf" ]; then
 		rm -vrf /tmp/dnsmasq.ssr /tmp/dnsmasq.oversea /tmp/dnsmasq.d/dnsmasq-ssr.conf
 		/etc/init.d/dnsmasq restart >/dev/null 2>&1
+		echolog "  - [$?] restore system DNS service"
 	fi
 
-	for bin in "ssr-monitor" "ss-redir" "ssr-redir" "v2ray" "trojan-go" "trojan" "ipt2socks" "logread" "ssr-server" "kcptun-client" "ssr-local"; do
-		busybox ps -w|grep "bin/$bin"|grep -v grep|sed -e 's/^ \+//;s/\([^ ]\+\) .*/kill -9 \1/'|sh
+	for bin in "ssr-monitor" "ssr-switch" "${TMP_BIN_PATH}"; do
+		busybox ps -w | grep "${bin}" | grep -v grep | sed -ne 's/^ \+//;s/\([^ ]\+\) .*/\1/p' | xargs -r kill -9 >/dev/null
+		echolog "  - [$?] killing all ${bin##*/} services if any"
 	done
-	if [ -f /var/run/pdnsd.pid ] ;then
-		service_stop /usr/sbin/pdnsd
-		kill $(cat /var/run/pdnsd.pid) >/dev/null 2>&1
-	else
-		kill -9 $(busybox ps -w | grep pdnsd | grep -v grep | awk '{print $1}') >/dev/null 2>&1 
+	if [ -f /var/run/pdnsd_ssr.pid ]; then
+		kill $(cat /var/run/pdnsd_ssr.pid) >/dev/null
+		echolog "  - [$?] killing pdnsd service if running"
+		rm -f /var/run/pdnsd_ssr.pid
 	fi
 	del_cron
 }

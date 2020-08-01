@@ -32,49 +32,54 @@ table.sort(key_table)
 s = m:section(TypedSection, "global")
 s.anonymous = true
 
-o = s:option(ListValue, "global_server", translate("Main Server"))
+s:tab("Main", translate("Main"))
+
+o = s:taboption("Main", ListValue, "global_server", translate("TCP Proxy Node"))
 o:value("nil", translate("Disable"))
 for _,key in pairs(key_table) do o:value(key,server_table[key]) end
 o.default = "nil"
 o.rmempty = false
 
-o = s:option(ListValue, "udp_relay_server", translate("Game Mode UDP Server"))
+o = s:taboption("Main", ListValue, "udp_relay_server", translate("UDP Proxy Node"))
 o:value("nil", translate("Disable"))
 o:value("same", translate("Same as Global Server"))
 for _,key in pairs(key_table) do o:value(key,server_table[key]) end
 
-o = s:option(ListValue, "threads", translate("Multi Threads Option"))
+o = s:taboption("Main", Value, "threads", translate("Multi Threads Option"))
 o:value("0", translate("Auto Threads"))
 o:value("1", translate("1 Thread"))
 o:value("2", translate("2 Threads"))
-o:value("4", translate("4 Threads"))
-o:value("8", translate("8 Threads"))
 o.default = "0"
 o.rmempty = false
 
-o = s:option(ListValue, "run_mode", translate("Running Mode"))
+o = s:taboption("Main", ListValue, "run_mode", translate("Running Mode"))
 o:value("gfw", translate("GFW List Mode"))
 o:value("router", translate("IP Route Mode"))
 o:value("all", translate("Global Mode"))
 o:value("oversea", translate("Oversea Mode"))
 o.default = "gfw"
 
-o = s:option(ListValue, "dports", translate("Proxy Ports"))
-o:value("1", translate("All Ports"))
-o:value("2", translate("Only Common Ports"))
-o.default = "1"
+o = s:taboption("Main", Value, "dports", translate("Proxy Ports"), translate("All Ports") .. ": 1:65535" .. "，" .. translate("Only Common Ports") .. ": 22,53,587,465,995,993,143,80,443,8443,5353")
+o:value("1:65535", translate("All Ports"))
+o:value("22,53,587,465,995,993,143,80,443,8443,5353", translate("Only Common Ports"))
+o.default = "1:65535"
+o.rmempty = false
 
-o = s:option(ListValue, "dns_mode", translate("Resolve Dns Mode"))
+s:tab("DNS", translate("DNS"))
+
+o = s:taboption("DNS", ListValue, "dns_mode", translate("DNS Hijack"),
+	translate("Pdnsd: listening on local 5335, perform TCP DNS query only.<br />Pdnsd+Node: DNS requests encrypt and routed by 'UDP Proxy Node' then forward to ") .. translate("Anti-pollution DNS Server"))
 o.widget  = "radio"
 o.orientation = "horizontal"
-o:value("pdnsd", translate("Use Pdnsd tcp query and cache"))
-o:value("dnscrypt", translate("Use DNSCrypt Proxy listen port 5335"))
-o:value("local", translate("Use Local DNS Service listen port 5335"))
+o:value("pdnsd", translate("Pdnsd"))
+o:value("pdnsd+node", translate("Pdnsd+Node"))
+o:value("local", translate("Local 5335"))
 o.default = "pdnsd"
 o.rmempty = false
 
-o = s:option(ListValue, "tunnel_forward", translate("Anti-pollution DNS Server"), luci.util.pcdata(translate("DNS Forward works with V2Ray & Trojan UDP relay only, else fallback to 8.8.4.4.")))
-o:value("127.0.0.1:5353", translate("DNS Forward with UDP Relay (127.0.0.1:5353)"))
+o = s:taboption("DNS", Value, "tunnel_forward", translate("Anti-pollution DNS Server"),
+	[[<font color='red'>]] .. luci.util.pcdata(translate("DNS Forward works with type of V2Ray & Trojan UDP proxy nodes only, and listening to local port 5353, local addresses fallback to '8.8.4.4:53' when at 'Pdnsd+Node' mode and only the first valid is used.")) .. [[</font>]])
+o:value("127.0.0.1:5353", translate("Local (127.0.0.1:5353)"))
 o:value("8.8.4.4:53", translate("Google Public DNS (8.8.4.4)"))
 o:value("8.8.8.8:53", translate("Google Public DNS (8.8.8.8)"))
 o:value("208.67.222.222:53", translate("OpenDNS (208.67.222.222)"))
@@ -89,17 +94,32 @@ o:value("1.1.1.1:53", translate("Cloudflare DNS (1.1.1.1)"))
 o:value("114.114.114.114:53", translate("Oversea Mode DNS-1 (114.114.114.114)"))
 o:value("114.114.115.115:53", translate("Oversea Mode DNS-2 (114.114.115.115)"))
 o:depends("dns_mode", "pdnsd")
+o:depends("dns_mode", "pdnsd+node")
 
--- [[ SOCKS5 Proxy ]]--
-s = m:section(TypedSection, "socks5_proxy", translate("SOCKS5 Proxy"))
+o = s:taboption("DNS", Value, "fallback_dns", translate("Fallback DNS"), [[<font color='red'>]] .. translate("Should support TCP query when at 'Pdnsd' mode.") .. [[</font>]])
+o.default = "208.67.222.222, 208.67.220.220"
+o.rmempty = false
+
+o = s:taboption("DNS", Value, "fallback_dns_port", translate("Fallback DNS Port"))
+o.datatype = "port"
+o.default = 5353
+o.rmempty = false
+
+-- [[ Socks5 Proxy ]]--
+s = m:section(TypedSection, "socks5_proxy", translate("Socks5 Proxy"))
 s.anonymous = true
 
-o = s:option(ListValue, "server", translate("Server"))
+o = s:option(ListValue, "server", translate("Select Node"))
 o:value("nil", translate("Disable"))
 o:value("same", translate("Same as UDP Server"))
 for _,key in pairs(key_table) do o:value(key,server_table[key]) end
 o:value("same", translate("Same as UDP Server"))
 o.default = "nil"
+o.rmempty = false
+
+o = s:option(Value, "local_address", translate("Server Address"))
+o.datatype = "host"
+o.default = "0.0.0.0"
 o.rmempty = false
 
 o = s:option(Value, "local_port", translate("Local Port"))
@@ -108,3 +128,4 @@ o.default = 1080
 o.rmempty = false
 
 return m
+
