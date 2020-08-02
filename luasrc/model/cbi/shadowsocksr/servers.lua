@@ -13,7 +13,7 @@ local fs  = require "nixio.fs"
 local sys = require "luci.sys"
 
 local function is_finded(e)
-    return luci.sys.exec('type -t -p "%s/%s" "%s"' % {/usr/bin/v2ray, e, e}) ~= "" and true or false
+    return luci.sys.exec('type -t -p "%s/%s" "%s"' % {"/usr/bin/v2ray", e, e}) ~= "" and true or false
 end
 
 m = Map(shadowsocksr,  translate("Servers subscription and manage"))

@@ -9,7 +9,7 @@ function index()
 	end
 
 local function is_finded(e)
-    return luci.sys.exec('type -t -p "%s/%s" "%s"' % {/usr/bin/v2ray, e, e}) ~= "" and true or false
+    return luci.sys.exec('type -t -p "%s/%s" "%s"' % {"/usr/bin/v2ray", e, e}) ~= "" and true or false
 end
 
   entry({"admin", "services", "shadowsocksr"},alias("admin", "services", "shadowsocksr", "client"),_("ShadowSocksR Plus+"), 10).acl_depends = { "luci-app-ssr-plus" }

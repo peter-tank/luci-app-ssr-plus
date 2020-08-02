@@ -10,7 +10,7 @@ local sid = arg[1]
 local uuid = luci.sys.exec("cat /proc/sys/kernel/random/uuid")
 
 local function is_finded(e)
-    return luci.sys.exec('type -t -p "%s/%s" "%s"' % {/usr/bin/v2ray, e, e}) ~= "" and true or false
+    return luci.sys.exec('type -t -p "%s/%s" "%s"' % {"/usr/bin/v2ray", e, e}) ~= "" and true or false
 end
 
 local server_table = {}
