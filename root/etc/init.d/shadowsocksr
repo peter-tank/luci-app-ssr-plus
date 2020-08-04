@@ -327,7 +327,6 @@ start_pdnsd() {
 	local usr_dns="$1"
 	local usr_port="$2"
 	local stype="$3"
-	local cmd="$4"
 	local param=config
   
 	local tcp_dns_list=$(uci_get_by_type global fallback_dns "208.67.222.222, 208.67.220.220")
@@ -336,9 +335,9 @@ start_pdnsd() {
 	echolog "Pdnsd DNS caching service..."
 	[ -z "$usr_dns" ] && usr_dns="8.8.4.4" && usr_port="53"
 	[ -n "$dnsforward" ] && [ -f "${CONFIG_DNS_FILE}" ] && {
-		# DNS server forward for trojan/trojan-go
+		# DNS server forward for trojan-plus/trojan/trojan-go
 		[ "$stype" == "trojan" ] && param=-config
-		ln_start_bin "$(first_type ${cmd})" ${cmd} -${param} $CONFIG_DNS_FILE
+		ln_start_bin "$(first_type ${stype}-plus ${stype})" ${stype} -${param} $CONFIG_DNS_FILE
 		echolog "  - start DNS forwarding service, ${cmd}"
 	}
 	[ -d /var/etc ] || mkdir -p /var/etc
@@ -428,7 +427,7 @@ start_redir() {
 		[ "$stype" == "trojan-go" ] && msg="TCP/UDP threads: 1" || msg="TCP threads: 1"
 	elif [ "$stype" == "trojan" ]; then
 		for i in $(seq 1 $threads); do
-			ln_start_bin "$(first_type ${stype})" ${stype} --config "$config_file"
+			ln_start_bin "$(first_type trojan-plus ${stype})" trojan-plus --config "$config_file"
 		done
 		msg="TCP/UDP threads: $threads"
 	fi
@@ -488,7 +487,7 @@ other_service() {
 		fi
 		[ "${dnsserver}" != "127.0.0.1" ] && [ "${dnsserver}" != "0.0.0.0" ] && ipset add "${list}" "$dnsserver" nomatch >/dev/null 2>&1
 		msg="[$?] to ipset list ${list}: ${dnsserver}"
-		start_pdnsd "$dnsserver" "$dnsport" "$utype" "$ucmd"
+		start_pdnsd "$dnsserver" "$dnsport" "$utype"
 		pdnsd_enable_flag=1
 	fi
 	echolog "  - ${msg}"
@@ -611,7 +610,7 @@ start_sock5() {
 		ln_start_bin "$(first_type ${ltype} ${ltype})" ${ltype} -config "$config_file"
 		msg="on ${slocal_addr}:${slocal_port}"
 	elif [ "$ltype" == "trojan" ]; then
-		ln_start_bin "$(first_type ${ltype})" ${ltype} --config "$config_file"
+		ln_start_bin "$(first_type trojan-plus ${ltype})" trojan-plus --config "$config_file"
 		msg="on ${slocal_addr}:${slocal_port}"
 	fi
 	[ -n "${msg}" ] && local_enable=1
