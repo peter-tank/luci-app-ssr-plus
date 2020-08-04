@@ -22,6 +22,12 @@ CONFIG_UDP_FILE=${TMP_PATH}/${NAME}_u.json
 CONFIG_SOCK5_FILE=${TMP_PATH}/${NAME}_s.json
 CONFIG_DNS_FILE=${TMP_PATH}/${NAME}_d.json
 CONFIG_PDNSD_FILE=${TMP_PATH}/pdnsd_ssr.conf
+CRON_FILE=/etc/crontabs/root
+GLOBAL_SERVER=
+UDP_RELAY_SERVER=
+run_mode=
+udp_server=
+udp_local_port=
 server_count=0
 redir_tcp=0
 redir_udp=0
@@ -33,7 +39,6 @@ pdnsd_enable_flag=0
 switch_enable=0
 switch_server=$1
 MAXFD=32768
-CRON_FILE=/etc/crontabs/root
 threads=1
 dns_port=5335
 fdns_port=5353
@@ -75,7 +80,7 @@ ln_start_bin() {
 		}
 		[ -x "${file_func}" ] || echolog "  - $(readlink ${file_func}) No execuable permission, ${file_func} $@"
 	fi
-	echo ${file_func} $@ >&2
+	echo "${file_func} $@" >&2
 	[ -n "${file_func}" ] || echolog "  - Not found ${ln_name}..."
 	${file_func:-echolog "  - ${ln_name}"} $@ >/dev/null 2>&1 &
 }
@@ -285,21 +290,17 @@ start_rules() {
 	fi
 	echolog "  - [$lan_ac_mode] Local ACL: ${lan_ac_ips:-NONE}"
 	
-	local gfwmode msg 
-	if [ "$run_mode" == "gfw" ]; then
+	local gfwmode
+	if [ "$run_mode" = "gfw" ]; then
 		gfwmode="-g"
-		msg="in 'gfw' mode, proxy gfwlist only"
 	elif [ "$run_mode" = "router" ]; then
 		gfwmode="-r"
-		msg="in 'router' mode, proxy nun-chinalist"
 	elif [ "$run_mode" = "oversea" ]; then
 		gfwmode="-c"
-		msg="in 'oversea' mode, proxy chinalist only"
 	elif [ "$run_mode" = "all" ]; then
 		gfwmode="-z"
-		msg="in 'all' mode, proxy all stream"
 	fi
-	echolog "  - ${msg:-the wrong running mode}"
+	[ -n "${gfwmode}" ] || echolog "  - the wrong running mode: ${run_mode}"
 
 	local dports=$(uci_get_by_type global dports 1:65535)
 	proxyport="-m multiport --dports $dports "
@@ -625,8 +626,64 @@ rules() {
 	return "${ret}"
 }
 
+dnsmasq_config() {
+	local dst dnsmasq_mode ext gfw_port chn_port
+
+	dst="/tmp/dnsmasq.d"
+	dnsmasq_mode="ssr"
+	gfw_port="${dns_port}"
+	if [ "$run_mode" = "gfw" ]; then
+		echolog "GFW List mode..."
+		echolog "  + (proxy) forced clients..."
+		echolog "  - (UDP) if clients listed in game hosts..."
+		echolog "  | + (proxy) not in china domain/IP list or resolved as china IPs..."
+		echolog "  * else (proxy) blacklist, GFW domain list only."
+	elif [ "$run_mode" = "router" ]; then
+		echolog "Router mode..."
+		echolog "  + (proxy) forced clients..."
+		echolog "  - (direct) china domain/IP list or resolved as china IPs..."
+		echolog "  - if clients listed in game hosts..."
+		echolog "  | + (proxy) not in china domain/IP list or resolved as china IPs..."
+		echolog "  * else (proxy) not in whitelist."
+	elif [ "$run_mode" = "oversea" ]; then
+		dnsmasq_mode="oversea"
+		chn_port="${dns_port}"
+		unset gfw_port
+		echolog "Oversea mode..."
+		echolog "  + (proxy) forced clients..."
+		echolog "  + (proxy) in china domain/IP list or resolved as china IPs..."
+		echolog "  + (proxy) blacklist..."
+	elif [ "$run_mode" = "all" ]; then
+		chn_port="${dns_port}"
+		echolog "All mode..."
+		echolog "  + (proxy) forced clients..."
+		echolog "  + (proxy) all other distinations..."
+		echolog "  | - (direct) the running node address it self..."
+		echolog "  * if domain IPs resolve fails, add them to any domain list."
+	else
+		run_mode="xx"
+		echolog "Wrong mode: do nothing."
+	fi
+	echolog "  - (direct) UDP/53 requests."
+
+	if [ "${run_mode}" != "xx" ] ; then
+		for ext in ssr oversea; do
+			cp -a /etc/dnsmasq.${ext} /tmp/;
+		done
+		echolog "Initial dnsmasq running base[$?]..."
+		/usr/share/shadowsocksr/gfw2ipset.sh "${gfw_port}" "${chn_port}"
+		echolog "  - [$?] gen gfwlist/blacklist hosts from list"
+		/usr/share/shadowsocksr/chinaipset.sh "${chn_port}"
+		echolog "  - [$?] gen chnlist/whitelist hosts from list"
+	fi
+	rm -vrf ${dst}/ssr-*
+	cat > "${dst}/ssr-${dnsmasq_mode}.conf" <<-EOF
+		conf-dir=/tmp/dnsmasq.${dnsmasq_mode}
+	EOF
+}
+
 start() {
-	local GLOBAL_SERVER UDP_RELAY_SERVER stype global_server kcp_enable udp_server udp_local_port
+	local stype global_server kcp_enable
 	local msg utype slocal_port slocal_addr dns_mode dnsstr pdnsd dnsforward threads
 	if [ -z "$switch_server" ]; then
 		GLOBAL_SERVER=$(uci_get_by_type global global_server)
@@ -674,30 +731,14 @@ start() {
 	rm -vrf ${TMP_PATH}/
 
 	if rules; then
-		if mkdir /tmp/dnsmasq.ssr >/dev/null 2>&1; then
-			echolog "Initial ssr dnsmasq running base..."
-			cp -a /etc/dnsmasq.ssr /tmp/ && cp -a /etc/dnsmasq.oversea /tmp/
-			/usr/share/shadowsocksr/gfw2ipset.sh $dns_port
-			echolog "  - [$?] gen ssr base configure from ip list files dnsmasq"
-			/usr/share/shadowsocksr/chinaipset.sh
-			echolog "  - [$?] re-flush china ip to ipset list china"
-		fi
-		local dnsmasq_mode=ssr
-		[ "$run_mode" == "oversea" ] && dnsmasq_dir=/tmp/dnsmasq.oversea
-		cat > /tmp/dnsmasq.d/dnsmasq-ssr.conf <<-EOF
-			conf-dir=/tmp/dnsmasq.${dnsmasq_mode}
-		EOF
-	else
-		rm -vrf /tmp/dnsmasq.ssr /tmp/dnsmasq.oversea /tmp/dnsmasq.d/dnsmasq-ssr.conf
-		echolog "  - [$?] clean ssr dnsmasq running base"
+		dnsmasq_config
+		/etc/init.d/dnsmasq restart >/dev/null 2>&1
+		echolog "  - [$?] dnsmasq service restart"
+		other_service
+		start_redir
 	fi
-	/etc/init.d/dnsmasq restart >/dev/null 2>&1
-	echolog "  - [$?] dnsmasq service restart"
-
-	start_redir
 	start_sock5
 	start_server
-	other_service
 
 	add_cron
 }
@@ -710,17 +751,22 @@ boot() {
 stop() {
 	echolog "On stopping..."
 	/usr/bin/ssr-rules -f
+	echolog "  - [$?] flush ssr-redir iptable rules"
+
 	if iptables -L | grep SSR-SERVER-RULE; then
 		iptables -F SSR-SERVER-RULE
 		iptables -t filter -D INPUT  -j SSR-SERVER-RULE
 		iptables -X SSR-SERVER-RULE 2>/dev/null
-		echo "  - [$?] clean iptable rules"
+		echolog "  - [$?] clean ssr-server iptable rules"
 	fi
-	if [ -f "/tmp/dnsmasq.d/dnsmasq-ssr.conf" ]; then
-		rm -vrf /tmp/dnsmasq.ssr /tmp/dnsmasq.oversea /tmp/dnsmasq.d/dnsmasq-ssr.conf
+	rm /tmp/dnsmasq.d/ssr-*.conf && {
+		local ext
+		for ext in ssr oversea; do
+			rm -rf "/tmp/dnsmasq.${ext}"
+		done
 		/etc/init.d/dnsmasq restart >/dev/null 2>&1
 		echolog "  - [$?] restore system DNS service"
-	fi
+	}
 
 	for bin in "ssr-monitor" "ssr-switch" "${TMP_BIN_PATH}"; do
 		busybox ps -w | grep "${bin}" | grep -v grep | sed -ne 's/^ \+//;s/\([^ ]\+\) .*/\1/p' | xargs -r kill -9 >/dev/null

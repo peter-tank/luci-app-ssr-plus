@@ -54,9 +54,9 @@ o.rmempty = false
 
 o = s:taboption("Main", ListValue, "run_mode", translate("Running Mode"))
 o:value("gfw", translate("GFW List Mode"))
-o:value("router", translate("IP Route Mode"))
+o:value("router", translate("China List Mode"))
 o:value("all", translate("Global Mode"))
-o:value("oversea", translate("Oversea Mode"))
+o:value("oversea", translate("Proxy China Mode"))
 o.default = "gfw"
 
 o = s:taboption("Main", Value, "dports", translate("Proxy Ports"), translate("All Ports") .. ": 1:65535" .. "，" .. translate("Only Common Ports") .. ": 22,53,587,465,995,993,143,80,443,8443,5353")

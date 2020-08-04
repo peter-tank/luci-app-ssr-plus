@@ -34,7 +34,7 @@ luci.ip.neighbors({ family = 4 }, function(entry)
        end
 end)
 
-o = s:taboption("lan_ac", DynamicList, "lan_gm_ips", translate("Game Mode Host List"))
+o = s:taboption("lan_ac", DynamicList, "lan_gm_ips", translate("Game Host List"))
 o.datatype = "ipaddr"
 luci.ip.neighbors({ family = 4 }, function(entry)
        if entry.reachable then
@@ -62,7 +62,6 @@ o.cfgvalue = function(self, section)
 end
 o.write = function(self, section, value)
 	NXFS.writefile(escconf, value:gsub("\r\n", "\n"))
-	luci.sys.call("/usr/share/shadowsocksr/gfw2ipset.sh && /etc/init.d/dnsmasq restart")
 end
 o.remove = function(self, section, value)
 	NXFS.writefile(escconf, "")
@@ -81,7 +80,6 @@ o.cfgvalue = function(self, section)
 end
 o.write = function(self, section, value)
 	NXFS.writefile(blockconf, value:gsub("\r\n", "\n"))
-	luci.sys.call("/usr/share/shadowsocksr/gfw2ipset.sh && /etc/init.d/dnsmasq restart")
 end
 o.remove = function(self, section, value)
 	NXFS.writefile(blockconf, "")

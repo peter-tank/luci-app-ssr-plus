@@ -224,22 +224,22 @@ msgid "Running"
 msgstr "运行中"
 
 msgid "Enable GFW mode"
-msgstr "启用 GFW 模式"
+msgstr "启用防火墙列表"
 
 msgid "Running Mode"
 msgstr "运行模式"
 
-msgid "IP Route Mode"
-msgstr "绕过中国大陆IP模式"
+msgid "China List Mode"
+msgstr "中国列表"
 
 msgid "GFW List Mode"
-msgstr "GFW列表模式"
+msgstr "防火墙列表"
 
 msgid "Global Mode"
 msgstr "全局模式"
 
-msgid "Oversea Mode"
-msgstr "海外用户回国模式"
+msgid "Proxy China Mode"
+msgstr "代理中国"
 
 msgid "Router Proxy"
 msgstr "路由器访问控制"
@@ -282,6 +282,9 @@ msgstr "【GFW列表】数据库"
 
 msgid "China IP Data"
 msgstr "【国内IP段】数据库"
+
+msgid "GFW List"
+msgstr "防火墙列表"
 
 msgid "Records"
 msgstr "条记录"
@@ -333,15 +336,6 @@ msgstr "启用进程自动守护"
 
 msgid "Advertising Data"
 msgstr "【广告屏蔽】数据库"
-
-msgid "DNS Server IP and Port"
-msgstr "DNS服务器地址和端口"
-
-msgid "DNS Hijack"
-msgstr "DNS劫持"
-
-msgid "Use SSR DNS Tunnel"
-msgstr "使用SSR-DNS隧道"
 
 msgid "Pdnsd"
 msgstr "Pdnsd"
@@ -408,9 +402,6 @@ msgstr "订阅加入的新节点默认开启自动切换"
 
 msgid "Through proxy update"
 msgstr "通过代理更新"
-
-msgid "GFW List"
-msgstr "GFW列表"
 
 msgid "ShadowSocksR Plus+ Settings"
 msgstr "ShadowSocksR Plus+ 设置"
