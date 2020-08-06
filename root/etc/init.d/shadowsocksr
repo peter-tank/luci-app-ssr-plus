@@ -639,7 +639,7 @@ dnsmasq_config() {
 		echolog "  | + (proxy) not in china domain/IP list or resolved as china IPs..."
 		echolog "  * else (proxy) blacklist, GFW domain list only."
 	elif [ "$run_mode" = "router" ]; then
-		echolog "Router mode..."
+		echolog "Not China List mode..."
 		echolog "  + (proxy) forced clients..."
 		echolog "  - (direct) china domain/IP list or resolved as china IPs..."
 		echolog "  - if clients listed in game hosts..."
@@ -649,13 +649,13 @@ dnsmasq_config() {
 		dnsmasq_mode="oversea"
 		chn_port="${dns_port}"
 		unset gfw_port
-		echolog "Oversea mode..."
+		echolog "China List mode..."
 		echolog "  + (proxy) forced clients..."
 		echolog "  + (proxy) in china domain/IP list or resolved as china IPs..."
 		echolog "  + (proxy) blacklist..."
 	elif [ "$run_mode" = "all" ]; then
 		chn_port="${dns_port}"
-		echolog "All mode..."
+		echolog "Global mode..."
 		echolog "  + (proxy) forced clients..."
 		echolog "  + (proxy) all other distinations..."
 		echolog "  | - (direct) the running node address it self..."
@@ -680,6 +680,15 @@ dnsmasq_config() {
 	cat > "${dst}/ssr-${dnsmasq_mode}.conf" <<-EOF
 		conf-dir=/tmp/dnsmasq.${dnsmasq_mode}
 	EOF
+	if ! "${pdnsd}" && [ "${dns_mode}" != "disabled" ]; then
+		cat <<-EOF >> "${dst}/ssr-${dnsmasq_mode}.conf"
+			$(echo "${dns_mode}" | sed 's/:/#/g')
+			all-servers
+			no-poll
+			no-resolv
+		EOF
+		echolog "  - [$?] DNS Forced($(echo ${dns_mode} | sed 's/:/#/g'))..."
+	fi
 }
 
 start() {
@@ -721,7 +730,7 @@ start() {
 
 	dnsstr=$(uci_get_by_type global tunnel_forward "8.8.4.4:53")
 	pdnsd=false;
-	dns_mode=$(uci_get_by_type global dns_mode "disable")
+	dns_mode=$(uci_get_by_type global dns_mode "disabled")
 	echo "$dns_mode" | grep -q "^pdnsd" && pdnsd=true
 	[ "${dns_mode}" == "pdnsd+node" ] && dnsforward=1
 

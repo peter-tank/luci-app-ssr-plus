@@ -10,7 +10,7 @@ ipset -! restore < /tmp/china.ipset 2>/dev/null
 rm -f /tmp/china.ipset
 
 if [ -z "${fwd_port}" ]; then
-awk '!/^$/&&!/^#/{printf("ipset=/.%s/'"china"'\n",$0)}' /etc/ssr/chnlist >> /tmp/dnsmasq.ssr/china.conf
+awk '!/^$/&&!/^#/{printf("ipset=/.%s/'"china"'\n",$0)}' /etc/ssr/chnlist > /tmp/dnsmasq.ssr/china.conf
 else
 awk '!/^$/&&!/^#/{printf("server=/.%s/'"127.0.0.1#${fwd_port}"'\n",$0)}' /etc/ssr/chnlist > /tmp/dnsmasq.oversea/china.conf
 awk '!/^$/&&!/^#/{printf("ipset=/.%s/'"china"'\n",$0)}' /etc/ssr/chnlist >> /tmp/dnsmasq.oversea/china.conf

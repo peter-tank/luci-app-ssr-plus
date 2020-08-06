@@ -54,9 +54,9 @@ o.rmempty = false
 
 o = s:taboption("Main", ListValue, "run_mode", translate("Running Mode"))
 o:value("gfw", translate("GFW List Mode"))
-o:value("router", translate("China List Mode"))
+o:value("router", translate("Not China List Mode"))
 o:value("all", translate("Global Mode"))
-o:value("oversea", translate("Proxy China Mode"))
+o:value("oversea", translate("China List Mode"))
 o.default = "gfw"
 
 o = s:taboption("Main", Value, "dports", translate("Proxy Ports"), translate("All Ports") .. ": 1:65535" .. "，" .. translate("Only Common Ports") .. ": 22,53,587,465,995,993,143,80,443,8443,5353")
@@ -67,13 +67,13 @@ o.rmempty = false
 
 s:tab("DNS", translate("DNS"))
 
-o = s:taboption("DNS", ListValue, "dns_mode", translate("DNS Hijack"),
+o = s:taboption("DNS", Value, "dns_mode", translate("Filtered DNS"),
 	translate("Pdnsd: listening on local 5335, perform TCP DNS query only.<br />Pdnsd+Node: DNS requests encrypt and routed by 'UDP Proxy Node' then forward to ") .. translate("Anti-pollution DNS Server"))
-o.widget  = "radio"
-o.orientation = "horizontal"
+--o.widget  = "radio"
+--o.orientation = "horizontal"
 o:value("pdnsd", translate("Pdnsd"))
 o:value("pdnsd+node", translate("Pdnsd+Node"))
-o:value("local", translate("Local 5335"))
+o:value("disabled", translate("Disable"))
 o.default = "pdnsd"
 o.rmempty = false
 
@@ -91,8 +91,8 @@ o:value("4.2.2.2:53", translate("Level 3 Public DNS (4.2.2.2)"))
 o:value("4.2.2.3:53", translate("Level 3 Public DNS (4.2.2.3)"))
 o:value("4.2.2.4:53", translate("Level 3 Public DNS (4.2.2.4)"))
 o:value("1.1.1.1:53", translate("Cloudflare DNS (1.1.1.1)"))
-o:value("114.114.114.114:53", translate("Oversea Mode DNS-1 (114.114.114.114)"))
-o:value("114.114.115.115:53", translate("Oversea Mode DNS-2 (114.114.115.115)"))
+o:value("114.114.114.114:53", translate("China DNS-1 (114.114.114.114)"))
+o:value("114.114.115.115:53", translate("China DNS-2 (114.114.115.115)"))
 o:depends("dns_mode", "pdnsd")
 o:depends("dns_mode", "pdnsd+node")
 

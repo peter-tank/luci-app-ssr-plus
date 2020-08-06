@@ -229,8 +229,8 @@ msgstr "启用防火墙列表"
 msgid "Running Mode"
 msgstr "运行模式"
 
-msgid "China List Mode"
-msgstr "中国列表"
+msgid "Not China List Mode"
+msgstr "中国列表以外模式"
 
 msgid "GFW List Mode"
 msgstr "防火墙列表"
@@ -238,8 +238,8 @@ msgstr "防火墙列表"
 msgid "Global Mode"
 msgstr "全局模式"
 
-msgid "Proxy China Mode"
-msgstr "代理中国"
+msgid "China List Mode"
+msgstr "中国列表模式"
 
 msgid "Router Proxy"
 msgstr "路由器访问控制"
@@ -337,14 +337,14 @@ msgstr "启用进程自动守护"
 msgid "Advertising Data"
 msgstr "【广告屏蔽】数据库"
 
+msgid "Filtered DNS"
+msgstr "过滤服务"
+
 msgid "Pdnsd"
 msgstr "Pdnsd"
 
 msgid "Pdnsd+Node"
 msgstr "Pdnsd+节点"
-
-msgid "Local 5335"
-msgstr "本机 TCP/5335"
 
 msgid "Pdnsd: listening on local 5335, perform TCP DNS query only.<br />Pdnsd+Node: DNS requests encrypt and routed by 'UDP Proxy Node' then forward to"
 msgstr "Pdnsd：监听端口 5335，只支持发送 TCP DNS 请求。<br />Pdnsd+节点：通过 'Forward' 模式，经由 '用于Socks和DNS转发的节点'，转发DNS请求到"
@@ -422,7 +422,7 @@ msgid "Running Details:"
 msgstr "进程详情："
 
 msgid "Anti-pollution DNS Server"
-msgstr "访问国外域名DNS服务器"
+msgstr "反DNS污染服务器"
 
 msgid "Fallback DNS"
 msgstr "备用DNS服务器"
