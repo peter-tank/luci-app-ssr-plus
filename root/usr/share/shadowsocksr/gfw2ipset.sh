@@ -4,7 +4,7 @@ mkdir -p /tmp/dnsmasq.ssr
 fwd_port=${1}
 oversea=${2}
 
-[ -n "${gfw_port}" ] && {
+[ -n "${fwd_port}" ] && {
 awk '!/^$/&&!/^#/{printf("ipset=/.%s/'"gfwlist"'\n",$0)}' /etc/ssr/gfw.list > /tmp/dnsmasq.ssr/gfwlist.conf
 [ -z "${fwd_port}" ] || awk '!/^$/&&!/^#/{printf("server=/.%s/'"127.0.0.1#${fwd_port}"'\n",$0)}' /etc/ssr/gfw.list >> /tmp/dnsmasq.ssr/gfwlist.conf
 }

@@ -34,7 +34,7 @@ msgstr "ShadowSocksR SOCK5代理运行中"
 msgid "UDP Proxy Node"
 msgstr "用于Socks和DNS转发的节点"
 
-msgid "Same as Global Server"
+msgid "Same as TCP Proxy Node"
 msgstr "用于透明代理的节点"
 
 msgid "Servers Setting"
@@ -349,8 +349,8 @@ msgstr "Pdnsd+节点"
 msgid "Pdnsd: listening on local 5335, perform TCP DNS query only.<br />Pdnsd+Node: DNS requests encrypt and routed by 'UDP Proxy Node' then forward to"
 msgstr "Pdnsd：监听端口 5335，只支持发送 TCP DNS 请求。<br />Pdnsd+节点：通过 'Forward' 模式，经由 '用于Socks和DNS转发的节点'，转发DNS请求到"
 
-msgid "DNS Forward works with type of V2Ray & Trojan UDP proxy nodes only, and listening to local port 5353, local addresses fallback to '8.8.4.4:53' when at 'Pdnsd+Node' mode and only the first valid is used."
-msgstr "'Forward' 模式仅工作于 V2Ray 和 Trojan 类型的节点，并且需要监听本机 5353 端口，在 'Pdnsd+节点' 模式下时，填写的本地地址会自动以 '8.8.4.3:53' 代替，并且只有首个地址有效。"
+msgid "Pdnsd+Node works with type of V2Ray & Trojan UDP proxy nodes only, listening to local port 5353, and only the first valid DNS is used. Automatically fallback to simple Pdnsd mode when not the supported nodes types, and name server fallback to '8.8.4.4:53' on local DNS(127.0.0.1)."
+msgstr "'Pdnsd+节点' 模式仅支持 V2Ray 和 Trojan 类型的节点，需要监听本机 5353 端口此时只有首个自定义地址有效。如非支持的节点类型，自动回落到Pdnsd模式，如DNS为本地地址(127.0.0.1)，将以 '8.8.4.4:53' 代替。"
 
 msgid "Share Current"
 msgstr "所见即所得"
@@ -412,7 +412,7 @@ msgstr "特洛伊"
 msgid "logread"
 msgstr "主进程接管"
 
-msgid "Same as UDP Server"
+msgid "Same as UDP Proxy Node"
 msgstr "用于Socks和DNS转发的节点"
 
 msgid "v2ray"

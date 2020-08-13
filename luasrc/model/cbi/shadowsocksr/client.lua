@@ -42,7 +42,7 @@ o.rmempty = false
 
 o = s:taboption("Main", ListValue, "udp_relay_server", translate("UDP Proxy Node"))
 o:value("nil", translate("Disable"))
-o:value("same", translate("Same as Global Server"))
+o:value("same", translate("Same as TCP Proxy Node"))
 for _,key in pairs(key_table) do o:value(key,server_table[key]) end
 
 o = s:taboption("Main", Value, "threads", translate("Multi Threads Option"))
@@ -78,7 +78,7 @@ o.default = "pdnsd"
 o.rmempty = false
 
 o = s:taboption("DNS", Value, "tunnel_forward", translate("Anti-pollution DNS Server"),
-	[[<font color='red'>]] .. luci.util.pcdata(translate("DNS Forward works with type of V2Ray & Trojan UDP proxy nodes only, and listening to local port 5353, local addresses fallback to '8.8.4.4:53' when at 'Pdnsd+Node' mode and only the first valid is used.")) .. [[</font>]])
+	[[<font color='red'>]] .. luci.util.pcdata(translate("Pdnsd+Node works with type of V2Ray & Trojan UDP proxy nodes only, listening to local port 5353, and only the first valid DNS is used. Automatically fallback to simple Pdnsd mode when not the supported nodes types, and name server fallback to '8.8.4.4:53' on local DNS(127.0.0.1).")) .. [[</font>]])
 o:value("127.0.0.1:5353", translate("Local (127.0.0.1:5353)"))
 o:value("8.8.4.4:53", translate("Google Public DNS (8.8.4.4)"))
 o:value("8.8.8.8:53", translate("Google Public DNS (8.8.8.8)"))
@@ -111,9 +111,8 @@ s.anonymous = true
 
 o = s:option(ListValue, "server", translate("Select Node"))
 o:value("nil", translate("Disable"))
-o:value("same", translate("Same as UDP Server"))
+o:value("same", translate("Same as UDP Proxy Node"))
 for _,key in pairs(key_table) do o:value(key,server_table[key]) end
-o:value("same", translate("Same as UDP Server"))
 o.default = "nil"
 o.rmempty = false
 
